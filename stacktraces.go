@@ -29,7 +29,8 @@ func printStack(w io.Writer, stack []uintptr) {
 				}
 			}
 			file, line := f.FileLine(pc)
-			fmt.Fprintf(w, "\t%s:%d %s.%s\n", file, line-1, pkg, name)
+			fmt.Fprintf(w, "  %s()\n", f.Name())
+			fmt.Fprintf(w, "      %s:%d +0x%x\n", file, line-1, pc-f.Entry())
 		}
 	}
 	fmt.Fprintln(w)

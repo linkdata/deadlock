@@ -104,6 +104,7 @@ func TestHardDeadlock(t *testing.T) {
 	var deadlocks uint32
 	Opts.Write(func() {
 		Opts.DisableLockOrderDetection = true
+		Opts.PrintAllCurrentGoroutines = true
 		Opts.DeadlockTimeout = time.Millisecond * 20
 		Opts.OnPotentialDeadlock = func() {
 			atomic.AddUint32(&deadlocks, 1)
