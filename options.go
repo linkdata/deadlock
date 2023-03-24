@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var optsLock sync.Mutex
+var optsLock sync.RWMutex
 
 type Options struct {
 	// Would disable lock order based deadlock detection if DisableLockOrderDetection == true.
@@ -27,11 +27,19 @@ type Options struct {
 	LogBuf io.Writer
 }
 
-// Locked calls the given function with Opts locked.
+// Write calls the given function with Opts locked for writing.
 // Not needed unless you modify options while locks are being held.
-func (opts *Options) Locked(fn func()) {
+func (opts *Options) Write(fn func()) {
 	optsLock.Lock()
 	defer optsLock.Unlock()
+	fn()
+}
+
+// Read calls the given function with Opts locked for reading.
+// Not needed unless you modify options while locks are being held.
+func (opts *Options) Read(fn func()) {
+	optsLock.RLock()
+	defer optsLock.RUnlock()
 	fn()
 }
 

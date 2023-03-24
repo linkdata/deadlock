@@ -47,7 +47,7 @@ func (l *lockOrder) postLock(stack []uintptr, p interface{}) {
 
 func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
 	var opts Options
-	Opts.Locked(func() { opts = Opts })
+	Opts.Read(func() { opts = Opts })
 	if opts.DisableLockOrderDetection {
 		return
 	}

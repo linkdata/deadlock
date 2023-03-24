@@ -95,7 +95,7 @@ func (m *DeadlockRWMutex) RLocker() sync.Locker {
 
 func lock(lockFn func(), ptr interface{}) {
 	var opts Options
-	Opts.Locked(func() { opts = Opts })
+	Opts.Read(func() { opts = Opts })
 	stack := callers(1)
 	lo.preLock(stack, ptr)
 	if opts.DeadlockTimeout <= 0 {
