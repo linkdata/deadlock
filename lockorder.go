@@ -46,7 +46,9 @@ func (l *lockOrder) postLock(stack []uintptr, p interface{}) {
 }
 
 func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
-	if Opts.DisableLockOrderDetection {
+	var opts Options
+	Opts.Locked(func() { opts = Opts })
+	if opts.DisableLockOrderDetection {
 		return
 	}
 	gid := goid.Get()
@@ -54,18 +56,18 @@ func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
 	for b, bs := range l.cur {
 		if b == p {
 			if bs.gid == gid {
-				Opts.mu.Lock()
-				fmt.Fprintln(Opts.LogBuf, header, "Recursive locking:")
-				fmt.Fprintf(Opts.LogBuf, "current goroutine %d lock %p\n", gid, b)
-				printStack(Opts.LogBuf, stack)
-				fmt.Fprintln(Opts.LogBuf, "Previous place where the lock was grabbed (same goroutine)")
-				printStack(Opts.LogBuf, bs.stack)
-				l.other(p)
-				if buf, ok := Opts.LogBuf.(*bufio.Writer); ok {
+				optsLock.Lock()
+				fmt.Fprintln(opts.LogBuf, header, "Recursive locking:")
+				fmt.Fprintf(opts.LogBuf, "current goroutine %d lock %p\n", gid, b)
+				printStack(opts.LogBuf, stack)
+				fmt.Fprintln(opts.LogBuf, "Previous place where the lock was grabbed (same goroutine)")
+				printStack(opts.LogBuf, bs.stack)
+				l.other(&opts, p)
+				if buf, ok := opts.LogBuf.(*bufio.Writer); ok {
 					buf.Flush()
 				}
-				Opts.mu.Unlock()
-				Opts.OnPotentialDeadlock()
+				optsLock.Unlock()
+				opts.OnPotentialDeadlock()
 			}
 			continue
 		}
@@ -73,26 +75,26 @@ func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
 			continue
 		}
 		if s, ok := l.order[beforeAfter{p, b}]; ok {
-			Opts.mu.Lock()
-			fmt.Fprintln(Opts.LogBuf, header, "Inconsistent locking. saw this ordering in one goroutine:")
-			fmt.Fprintln(Opts.LogBuf, "happened before")
-			printStack(Opts.LogBuf, s.before)
-			fmt.Fprintln(Opts.LogBuf, "happened after")
-			printStack(Opts.LogBuf, s.after)
-			fmt.Fprintln(Opts.LogBuf, "in another goroutine: happened before")
-			printStack(Opts.LogBuf, bs.stack)
-			fmt.Fprintln(Opts.LogBuf, "happened after")
-			printStack(Opts.LogBuf, stack)
-			l.other(p)
-			fmt.Fprintln(Opts.LogBuf)
-			if buf, ok := Opts.LogBuf.(*bufio.Writer); ok {
+			optsLock.Lock()
+			fmt.Fprintln(opts.LogBuf, header, "Inconsistent locking. saw this ordering in one goroutine:")
+			fmt.Fprintln(opts.LogBuf, "happened before")
+			printStack(opts.LogBuf, s.before)
+			fmt.Fprintln(opts.LogBuf, "happened after")
+			printStack(opts.LogBuf, s.after)
+			fmt.Fprintln(opts.LogBuf, "in another goroutine: happened before")
+			printStack(opts.LogBuf, bs.stack)
+			fmt.Fprintln(opts.LogBuf, "happened after")
+			printStack(opts.LogBuf, stack)
+			l.other(&opts, p)
+			fmt.Fprintln(opts.LogBuf)
+			if buf, ok := opts.LogBuf.(*bufio.Writer); ok {
 				buf.Flush()
 			}
-			Opts.mu.Unlock()
-			Opts.OnPotentialDeadlock()
+			optsLock.Unlock()
+			opts.OnPotentialDeadlock()
 		}
 		l.order[beforeAfter{b, p}] = ss{bs.stack, stack}
-		if len(l.order) == Opts.MaxMapSize { // Reset the map to keep memory footprint bounded.
+		if len(l.order) == opts.MaxMapSize { // Reset the map to keep memory footprint bounded.
 			l.order = map[beforeAfter]ss{}
 		}
 	}
@@ -106,7 +108,7 @@ func (l *lockOrder) postUnlock(p interface{}) {
 }
 
 // Under lo.mu Locked.
-func (l *lockOrder) other(ptr interface{}) {
+func (l *lockOrder) other(opts *Options, ptr interface{}) {
 	empty := true
 	for k := range l.cur {
 		if k == ptr {
@@ -117,15 +119,15 @@ func (l *lockOrder) other(ptr interface{}) {
 	if empty {
 		return
 	}
-	fmt.Fprintln(Opts.LogBuf, "Other goroutines holding locks:")
+	fmt.Fprintln(opts.LogBuf, "Other goroutines holding locks:")
 	for k, pp := range l.cur {
 		if k == ptr {
 			continue
 		}
-		fmt.Fprintf(Opts.LogBuf, "goroutine %v lock %p\n", pp.gid, k)
-		printStack(Opts.LogBuf, pp.stack)
+		fmt.Fprintf(opts.LogBuf, "goroutine %v lock %p\n", pp.gid, k)
+		printStack(opts.LogBuf, pp.stack)
 	}
-	fmt.Fprintln(Opts.LogBuf)
+	fmt.Fprintln(opts.LogBuf)
 }
 
 const header = "POTENTIAL DEADLOCK:"

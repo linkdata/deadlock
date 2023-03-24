@@ -12,7 +12,9 @@ import (
 
 func TestNoDeadlocks(t *testing.T) {
 	defer restore()()
-	Opts.DeadlockTimeout = time.Millisecond * 5000
+	Opts.Locked(func() {
+		Opts.DeadlockTimeout = time.Millisecond * 5000
+	})
 	var a DeadlockRWMutex
 	var b DeadlockMutex
 	var c DeadlockRWMutex
@@ -62,11 +64,13 @@ func TestNoDeadlocks(t *testing.T) {
 
 func TestLockOrder(t *testing.T) {
 	defer restore()()
-	Opts.DeadlockTimeout = 0
 	var deadlocks uint32
-	Opts.OnPotentialDeadlock = func() {
-		atomic.AddUint32(&deadlocks, 1)
-	}
+	Opts.Locked(func() {
+		Opts.DeadlockTimeout = 0
+		Opts.OnPotentialDeadlock = func() {
+			atomic.AddUint32(&deadlocks, 1)
+		}
+	})
 	var a DeadlockRWMutex
 	var b DeadlockMutex
 	var wg sync.WaitGroup
@@ -97,12 +101,14 @@ func TestLockOrder(t *testing.T) {
 
 func TestHardDeadlock(t *testing.T) {
 	defer restore()()
-	Opts.DisableLockOrderDetection = true
-	Opts.DeadlockTimeout = time.Millisecond * 20
 	var deadlocks uint32
-	Opts.OnPotentialDeadlock = func() {
-		atomic.AddUint32(&deadlocks, 1)
-	}
+	Opts.Locked(func() {
+		Opts.DisableLockOrderDetection = true
+		Opts.DeadlockTimeout = time.Millisecond * 20
+		Opts.OnPotentialDeadlock = func() {
+			atomic.AddUint32(&deadlocks, 1)
+		}
+	})
 	var mu DeadlockMutex
 	mu.Lock()
 	ch := make(chan struct{})
@@ -125,11 +131,13 @@ func TestHardDeadlock(t *testing.T) {
 
 func TestRWMutex(t *testing.T) {
 	defer restore()()
-	Opts.DeadlockTimeout = time.Millisecond * 20
 	var deadlocks uint32
-	Opts.OnPotentialDeadlock = func() {
-		atomic.AddUint32(&deadlocks, 1)
-	}
+	Opts.Locked(func() {
+		Opts.DeadlockTimeout = time.Millisecond * 20
+		Opts.OnPotentialDeadlock = func() {
+			atomic.AddUint32(&deadlocks, 1)
+		}
+	})
 	var a DeadlockRWMutex
 	a.RLock()
 	go func() {
@@ -158,19 +166,22 @@ func TestRWMutex(t *testing.T) {
 }
 
 func restore() func() {
-	opts := Opts
+	var prevOpts Options
+	Opts.Locked(func() { prevOpts = Opts })
 	return func() {
-		Opts = opts
+		Opts.Locked(func() { Opts = prevOpts })
 	}
 }
 
 func TestLockDuplicate(t *testing.T) {
 	defer restore()()
-	Opts.DeadlockTimeout = 0
 	var deadlocks uint32
-	Opts.OnPotentialDeadlock = func() {
-		atomic.AddUint32(&deadlocks, 1)
-	}
+	Opts.Locked(func() {
+		Opts.DeadlockTimeout = 0
+		Opts.OnPotentialDeadlock = func() {
+			atomic.AddUint32(&deadlocks, 1)
+		}
+	})
 	var a DeadlockRWMutex
 	var b DeadlockMutex
 	go func() {

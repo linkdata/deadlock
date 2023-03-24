@@ -4,42 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/petermattis/goid"
 )
-
-// Opts control how deadlock detection behaves.
-// Options are supposed to be set once at a startup (say, when parsing flags).
-var Opts = struct {
-	// Would disable lock order based deadlock detection if DisableLockOrderDetection == true.
-	DisableLockOrderDetection bool
-	// Waiting for a lock for longer than DeadlockTimeout is considered a deadlock.
-	// Ignored if DeadlockTimeout <= 0.
-	DeadlockTimeout time.Duration
-	// OnPotentialDeadlock is called each time a potential deadlock is detected -- either based on
-	// lock order or on lock wait time.
-	OnPotentialDeadlock func()
-	// Will keep MaxMapSize lock pairs (happens before // happens after) in the map.
-	// The map resets once the threshold is reached.
-	MaxMapSize int
-	// Will dump stacktraces of all goroutines when inconsistent locking is detected.
-	PrintAllCurrentGoroutines bool
-	mu                        *sync.Mutex // Protects the LogBuf.
-	// Will print deadlock info to log buffer.
-	LogBuf io.Writer
-}{
-	DeadlockTimeout: time.Second * 30,
-	OnPotentialDeadlock: func() {
-		os.Exit(2)
-	},
-	MaxMapSize: 1024 * 64,
-	mu:         &sync.Mutex{},
-	LogBuf:     os.Stderr,
-}
 
 // A DeadlockMutex is a drop-in replacement for sync.Mutex.
 type DeadlockMutex struct {
@@ -125,16 +94,18 @@ func (m *DeadlockRWMutex) RLocker() sync.Locker {
 }
 
 func lock(lockFn func(), ptr interface{}) {
+	var opts Options
+	Opts.Locked(func() { opts = Opts })
 	stack := callers(1)
 	lo.preLock(stack, ptr)
-	if Opts.DeadlockTimeout <= 0 {
+	if opts.DeadlockTimeout <= 0 {
 		lockFn()
 	} else {
 		ch := make(chan struct{})
 		currentID := goid.Get()
 		go func() {
 			for {
-				t := time.NewTimer(Opts.DeadlockTimeout)
+				t := time.NewTimer(opts.DeadlockTimeout)
 				defer t.Stop() // This runs after the closure finishes, but it's OK.
 				select {
 				case <-t.C:
@@ -144,35 +115,35 @@ func lock(lockFn func(), ptr interface{}) {
 						lo.mu.Unlock()
 						break // Nobody seems to be holding the lock, try again.
 					}
-					Opts.mu.Lock()
-					fmt.Fprintln(Opts.LogBuf, header)
-					fmt.Fprintln(Opts.LogBuf, "Previous place where the lock was grabbed")
-					fmt.Fprintf(Opts.LogBuf, "goroutine %v lock %p\n", prev.gid, ptr)
-					printStack(Opts.LogBuf, prev.stack)
-					fmt.Fprintln(Opts.LogBuf, "Have been trying to lock it again for more than", Opts.DeadlockTimeout)
-					fmt.Fprintf(Opts.LogBuf, "goroutine %v lock %p\n", currentID, ptr)
-					printStack(Opts.LogBuf, stack)
+					optsLock.Lock()
+					fmt.Fprintln(opts.LogBuf, header)
+					fmt.Fprintln(opts.LogBuf, "Previous place where the lock was grabbed")
+					fmt.Fprintf(opts.LogBuf, "goroutine %v lock %p\n", prev.gid, ptr)
+					printStack(opts.LogBuf, prev.stack)
+					fmt.Fprintln(opts.LogBuf, "Have been trying to lock it again for more than", opts.DeadlockTimeout)
+					fmt.Fprintf(opts.LogBuf, "goroutine %v lock %p\n", currentID, ptr)
+					printStack(opts.LogBuf, stack)
 					stacks := stacks()
 					grs := bytes.Split(stacks, []byte("\n\n"))
 					for _, g := range grs {
 						if goid.ExtractGID(g) == prev.gid {
-							fmt.Fprintln(Opts.LogBuf, "Here is what goroutine", prev.gid, "doing now")
-							Opts.LogBuf.Write(g)
-							fmt.Fprintln(Opts.LogBuf)
+							fmt.Fprintln(opts.LogBuf, "Here is what goroutine", prev.gid, "doing now")
+							opts.LogBuf.Write(g)
+							fmt.Fprintln(opts.LogBuf)
 						}
 					}
-					lo.other(ptr)
-					if Opts.PrintAllCurrentGoroutines {
-						fmt.Fprintln(Opts.LogBuf, "All current goroutines:")
-						Opts.LogBuf.Write(stacks)
+					lo.other(&opts, ptr)
+					if opts.PrintAllCurrentGoroutines {
+						fmt.Fprintln(opts.LogBuf, "All current goroutines:")
+						opts.LogBuf.Write(stacks)
 					}
-					fmt.Fprintln(Opts.LogBuf)
-					if buf, ok := Opts.LogBuf.(*bufio.Writer); ok {
+					fmt.Fprintln(opts.LogBuf)
+					if buf, ok := opts.LogBuf.(*bufio.Writer); ok {
 						buf.Flush()
 					}
-					Opts.mu.Unlock()
+					optsLock.Unlock()
 					lo.mu.Unlock()
-					Opts.OnPotentialDeadlock()
+					opts.OnPotentialDeadlock()
 					<-ch
 					return
 				case <-ch:
