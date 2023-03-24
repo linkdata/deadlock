@@ -139,7 +139,7 @@ func TestRWMutex(t *testing.T) {
 		}
 	})
 	var a DeadlockRWMutex
-	a.RLock()
+	a.Lock()
 	go func() {
 		// We detect a potential deadlock here.
 		a.Lock()
@@ -147,18 +147,20 @@ func TestRWMutex(t *testing.T) {
 	}()
 	time.Sleep(time.Millisecond * 100) // We want the Lock call to happen.
 	ch := make(chan struct{})
+	locker := a.RLocker()
 	go func() {
 		// We detect a potential deadlock here.
 		defer close(ch)
-		a.RLock()
-		defer a.RUnlock()
+		locker.Lock()
+		defer locker.Unlock()
 	}()
 	select {
 	case <-ch:
 		t.Fatal("expected a timeout")
 	case <-time.After(time.Millisecond * 50):
 	}
-	a.RUnlock()
+	a.Unlock()
+	// a.RUnlock()
 	if atomic.LoadUint32(&deadlocks) != 2 {
 		t.Fatalf("expected 2 deadlocks, detected %d", deadlocks)
 	}
