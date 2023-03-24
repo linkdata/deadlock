@@ -8,3 +8,6 @@ type Mutex struct{ DeadlockMutex }
 
 // RWMutex is deadlock.DeadlockRWMutex wrapper
 type RWMutex struct{ DeadlockRWMutex }
+
+// Enabled is true if deadlock checking is enabled
+const Enabled = true
