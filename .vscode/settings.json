@@ -1,0 +1,10 @@
+{
+	"gopls": {
+		"build.buildFlags": [
+			"-tags=deadlock",
+		]
+	},
+	"go.buildFlags": [
+		"-tags=deadlock",
+	]
+}
