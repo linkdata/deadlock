@@ -1,5 +1,5 @@
-//go:build deadlock
-// +build deadlock
+//go:build deadlock || race
+// +build deadlock race
 
 package deadlock
 
