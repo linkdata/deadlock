@@ -1,6 +1,7 @@
 package deadlock
 
 import (
+	"bufio"
 	"io"
 	"os"
 	"sync"
@@ -27,20 +28,36 @@ type Options struct {
 	LogBuf io.Writer
 }
 
-// Write calls the given function with Opts locked for writing.
+// WriteLocked calls the given function with Opts locked for writing.
 // Not needed unless you modify options while locks are being held.
-func (opts *Options) Write(fn func()) {
+func (opts *Options) WriteLocked(fn func()) {
 	optsLock.Lock()
 	defer optsLock.Unlock()
 	fn()
 }
 
-// Read calls the given function with Opts locked for reading.
+// ReadLocked calls the given function with Opts locked for reading.
 // Not needed unless you modify options while locks are being held.
-func (opts *Options) Read(fn func()) {
+func (opts *Options) ReadLocked(fn func()) {
 	optsLock.RLock()
 	defer optsLock.RUnlock()
 	fn()
+}
+
+func (opts *Options) Write(b []byte) (int, error) {
+	if opts.LogBuf != nil {
+		return opts.LogBuf.Write(b)
+	}
+	return 0, nil
+}
+
+func (opts *Options) Flush() error {
+	if opts.LogBuf != nil {
+		if buf, ok := opts.LogBuf.(*bufio.Writer); ok {
+			return buf.Flush()
+		}
+	}
+	return nil
 }
 
 // Opts control how deadlock detection behaves.

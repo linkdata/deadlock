@@ -1,7 +1,6 @@
 package deadlock
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"sync"
@@ -95,7 +94,7 @@ func (m *DeadlockRWMutex) RLocker() sync.Locker {
 
 func lock(lockFn func(), ptr interface{}) {
 	var opts Options
-	Opts.Read(func() { opts = Opts })
+	Opts.ReadLocked(func() { opts = Opts })
 	stack := callers(1)
 	lo.preLock(stack, ptr)
 	if opts.DeadlockTimeout <= 0 {
@@ -116,31 +115,29 @@ func lock(lockFn func(), ptr interface{}) {
 						break // Nobody seems to be holding the lock, try again.
 					}
 					optsLock.Lock()
-					fmt.Fprintln(opts.LogBuf, header)
-					fmt.Fprintln(opts.LogBuf, "Previous place where the lock was grabbed")
-					fmt.Fprintf(opts.LogBuf, "goroutine %v lock %p\n", prev.gid, ptr)
-					printStack(opts.LogBuf, prev.stack)
-					fmt.Fprintln(opts.LogBuf, "Have been trying to lock it again for more than", opts.DeadlockTimeout)
-					fmt.Fprintf(opts.LogBuf, "goroutine %v lock %p\n", currentID, ptr)
-					printStack(opts.LogBuf, stack)
+					fmt.Fprintln(&opts, header)
+					fmt.Fprintln(&opts, "Previous place where the lock was grabbed")
+					fmt.Fprintf(&opts, "goroutine %v lock %p\n", prev.gid, ptr)
+					printStack(&opts, prev.stack)
+					fmt.Fprintln(&opts, "Have been trying to lock it again for more than", opts.DeadlockTimeout)
+					fmt.Fprintf(&opts, "goroutine %v lock %p\n", currentID, ptr)
+					printStack(&opts, stack)
 					stacks := stacks()
 					grs := bytes.Split(stacks, []byte("\n\n"))
 					for _, g := range grs {
 						if goid.ExtractGID(g) == prev.gid {
-							fmt.Fprintln(opts.LogBuf, "Here is what goroutine", prev.gid, "doing now")
-							opts.LogBuf.Write(g)
-							fmt.Fprintln(opts.LogBuf)
+							fmt.Fprintln(&opts, "Here is what goroutine", prev.gid, "doing now")
+							opts.Write(g)
+							fmt.Fprintln(&opts)
 						}
 					}
 					lo.other(&opts, ptr)
 					if opts.PrintAllCurrentGoroutines {
-						fmt.Fprintln(opts.LogBuf, "All current goroutines:")
-						opts.LogBuf.Write(stacks)
+						fmt.Fprintln(&opts, "All current goroutines:")
+						opts.Write(stacks)
 					}
-					fmt.Fprintln(opts.LogBuf)
-					if buf, ok := opts.LogBuf.(*bufio.Writer); ok {
-						buf.Flush()
-					}
+					fmt.Fprintln(&opts)
+					opts.Flush()
 					optsLock.Unlock()
 					lo.mu.Unlock()
 					opts.OnPotentialDeadlock()
