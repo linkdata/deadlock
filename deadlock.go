@@ -109,30 +109,32 @@ func lock(lockFn func(), curMtx interface{}) {
 				defer t.Stop() // This runs after the closure finishes, but it's OK.
 				select {
 				case <-t.C:
+					fmt.Fprintln(&opts, header)
+					fmt.Fprintf(&opts, "goroutine %v have been trying to lock %p for more than %v:\n",
+						gid, curMtx, opts.DeadlockTimeout)
+					printStack(&opts, stack)
+
 					lo.mu.Lock()
 					prev, ok := lo.cur[curMtx]
 					if !ok {
 						lo.mu.Unlock()
-						break // Nobody seems to be holding the lock, try again.
+						panic("previous lock not found")
 					}
-					fmt.Fprintln(&opts, header)
-					fmt.Fprintln(&opts, "Previous place where the lock was grabbed")
-					fmt.Fprintf(&opts, "goroutine %v lock %p\n", prev.gid, curMtx)
+					fmt.Fprintf(&opts, "goroutine %v previously locked it from:\n", prev.gid)
 					printStack(&opts, prev.stack)
-					fmt.Fprintln(&opts, "Have been trying to lock it again for more than", opts.DeadlockTimeout)
-					fmt.Fprintf(&opts, "goroutine %v lock %p\n", gid, curMtx)
-					printStack(&opts, stack)
+
 					stacks := stacks()
 					goroutineStackList := bytes.Split(stacks, []byte("\n\n"))
 					for _, goroutineStack := range goroutineStackList {
 						if goid.ExtractGID(goroutineStack) == prev.gid {
-							fmt.Fprintln(&opts, "Here is what goroutine", prev.gid, "doing now")
+							fmt.Fprintf(&opts, "goroutine %v current stack:\n", prev.gid)
 							_, _ = opts.Write(goroutineStack)
 							fmt.Fprintln(&opts)
 						}
 					}
 					lo.otherLocked(&opts, curMtx)
 					lo.mu.Unlock()
+
 					if opts.PrintAllCurrentGoroutines {
 						fmt.Fprintln(&opts, "All current goroutines:")
 						_, _ = opts.Write(stacks)

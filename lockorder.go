@@ -51,9 +51,9 @@ func (l *lockOrder) preLock(opts *Options, gid int64, curStack []uintptr, curMtx
 		if otherMtx == curMtx {
 			if otherStackGID.gid == gid {
 				fmt.Fprintln(opts, header, "Recursive locking:")
-				fmt.Fprintf(opts, "current goroutine %d lock %p\n", gid, otherMtx)
+				fmt.Fprintf(opts, "goroutine %d lock %p:\n", gid, otherMtx)
 				printStack(opts, curStack)
-				fmt.Fprintln(opts, "Previous place where the lock was grabbed (same goroutine)")
+				fmt.Fprintln(opts, "same goroutine previously locked it from:")
 				printStack(opts, otherStackGID.stack)
 				l.otherLocked(opts, curMtx)
 				_ = opts.Flush()
@@ -65,11 +65,12 @@ func (l *lockOrder) preLock(opts *Options, gid int64, curStack []uintptr, curMtx
 			continue
 		}
 		if otherStacks, ok := l.order[beforeAfterMtx{curMtx, otherMtx}]; ok {
-			fmt.Fprintln(opts, header, "Inconsistent locking. saw this ordering in one goroutine:")
-			fmt.Fprintln(opts, "happened before")
+			fmt.Fprintln(opts, header, "Inconsistent locking:")
+			fmt.Fprintln(opts, "in one goroutine: happened before")
 			printStack(opts, otherStacks.beforeStack)
 			fmt.Fprintln(opts, "happened after")
 			printStack(opts, otherStacks.afterStack)
+
 			fmt.Fprintln(opts, "in another goroutine: happened before")
 			printStack(opts, otherStackGID.stack)
 			fmt.Fprintln(opts, "happened after")
