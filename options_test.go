@@ -36,3 +36,14 @@ func TestOptions_Write_LogBufIsBufio(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestOptions_PanicsOnMissingCallback(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fail()
+		}
+	}()
+	opts := Options{}
+	opts.PotentialDeadlock() // should panic
+	t.Fail()
+}

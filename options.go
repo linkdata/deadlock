@@ -58,11 +58,12 @@ func (opts *Options) Flush() error {
 	return nil
 }
 
-// PotentialDeadlock calls OnPotentialDeadlock if it is set.
+// PotentialDeadlock calls OnPotentialDeadlock if it is set, or panics if not.
 func (opts *Options) PotentialDeadlock() {
-	if opts.OnPotentialDeadlock != nil {
-		opts.OnPotentialDeadlock()
+	if opts.OnPotentialDeadlock == nil {
+		panic("deadlock detected")
 	}
+	opts.OnPotentialDeadlock()
 }
 
 // Opts control how deadlock detection behaves.
