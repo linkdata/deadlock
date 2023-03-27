@@ -125,7 +125,7 @@ func lock(lockFn func(), ptr interface{}) {
 					for _, g := range grs {
 						if goid.ExtractGID(g) == prev.gid {
 							fmt.Fprintln(&opts, "Here is what goroutine", prev.gid, "doing now")
-							opts.Write(g)
+							_, _ = opts.Write(g)
 							fmt.Fprintln(&opts)
 						}
 					}
@@ -133,10 +133,10 @@ func lock(lockFn func(), ptr interface{}) {
 					lo.mu.Unlock()
 					if opts.PrintAllCurrentGoroutines {
 						fmt.Fprintln(&opts, "All current goroutines:")
-						opts.Write(stacks)
+						_, _ = opts.Write(stacks)
 					}
 					fmt.Fprintln(&opts)
-					opts.Flush()
+					_ = opts.Flush()
 					opts.OnPotentialDeadlock()
 					<-ch
 					return

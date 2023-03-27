@@ -58,7 +58,7 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 				fmt.Fprintln(&opts, "Previous place where the lock was grabbed (same goroutine)")
 				printStack(&opts, bs.stack)
 				l.other(&opts, p)
-				opts.Flush()
+				_ = opts.Flush()
 				opts.OnPotentialDeadlock()
 			}
 			continue
@@ -78,7 +78,7 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 			printStack(&opts, stack)
 			l.other(&opts, p)
 			fmt.Fprintln(&opts)
-			opts.Flush()
+			_ = opts.Flush()
 			opts.OnPotentialDeadlock()
 		}
 		l.order[beforeAfter{b, p}] = ss{bs.stack, stack}
