@@ -143,9 +143,8 @@ created by github.com/linkdata/deadlock.lock
 
 Have a look at [Opts](https://pkg.go.dev/github.com/linkdata/deadlock#pkg-variables).
 
-* `Opts.DisableLockOrderDetection`: disables lock order based deadlock detection.
 * `Opts.DeadlockTimeout`: blocking on mutex for longer than DeadlockTimeout is considered a deadlock. ignored if negative
 * `Opts.OnPotentialDeadlock`: callback for then deadlock is detected
-* `Opts.MaxMapSize`: size of happens before // happens after table
+* `Opts.MaxMapSize`: size of happens before // happens after table, can also disable order based deadlock detection
 * `Opts.PrintAllCurrentGoroutines`:  dump stacktraces of all goroutines when inconsistent locking is detected, verbose
 * `Opts.LogBuf`: where to write deadlock info/stacktraces
