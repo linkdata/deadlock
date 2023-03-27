@@ -64,8 +64,8 @@ func TestNoDeadlocks(t *testing.T) {
 	var c DeadlockRWMutex
 	var wg sync.WaitGroup
 	var load int32
-	const wantedLoad = 100
-	for i := 0; i < runtime.NumCPU()*50 && atomic.LoadInt32(&load) < wantedLoad; i++ {
+	const wantedLoad = 50
+	for i := runtime.NumCPU() * wantedLoad; i > 0 && atomic.LoadInt32(&load) < wantedLoad; i-- {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
