@@ -130,13 +130,13 @@ func lock(lockFn func(), ptr interface{}) {
 						}
 					}
 					lo.other(&opts, ptr)
+					lo.mu.Unlock()
 					if opts.PrintAllCurrentGoroutines {
 						fmt.Fprintln(&opts, "All current goroutines:")
 						opts.Write(stacks)
 					}
 					fmt.Fprintln(&opts)
 					opts.Flush()
-					lo.mu.Unlock()
 					opts.OnPotentialDeadlock()
 					<-ch
 					return

@@ -48,10 +48,10 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 		return
 	}
 	l.mu.Lock()
+	defer l.mu.Unlock()
 	for b, bs := range l.cur {
 		if b == p {
 			if bs.gid == gid {
-				optsLock.Lock()
 				fmt.Fprintln(&opts, header, "Recursive locking:")
 				fmt.Fprintf(&opts, "current goroutine %d lock %p\n", gid, b)
 				printStack(&opts, stack)
@@ -59,7 +59,6 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 				printStack(&opts, bs.stack)
 				l.other(&opts, p)
 				opts.Flush()
-				optsLock.Unlock()
 				opts.OnPotentialDeadlock()
 			}
 			continue
@@ -68,7 +67,6 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 			continue
 		}
 		if s, ok := l.order[beforeAfter{p, b}]; ok {
-			optsLock.Lock()
 			fmt.Fprintln(&opts, header, "Inconsistent locking. saw this ordering in one goroutine:")
 			fmt.Fprintln(&opts, "happened before")
 			printStack(&opts, s.before)
@@ -81,7 +79,6 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 			l.other(&opts, p)
 			fmt.Fprintln(&opts)
 			opts.Flush()
-			optsLock.Unlock()
 			opts.OnPotentialDeadlock()
 		}
 		l.order[beforeAfter{b, p}] = ss{bs.stack, stack}
@@ -93,7 +90,6 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 			}
 		}
 	}
-	l.mu.Unlock()
 }
 
 func (l *lockOrder) postUnlock(p interface{}) {
