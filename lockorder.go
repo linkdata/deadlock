@@ -6,7 +6,7 @@ import (
 )
 
 type lockOrder struct {
-	mu    sync.Mutex
+	mu    sync.Mutex                          // protects following
 	cur   map[interface{}]stackGID            // stacktraces + gids for the locks currently taken.
 	order map[beforeAfterMtx]beforeAfterStack // expected order of locks.
 }
@@ -99,25 +99,18 @@ func (l *lockOrder) postUnlock(curMtx interface{}) {
 }
 
 func (l *lockOrder) otherLocked(opts *Options, curMtx interface{}) {
-	empty := true
-	for k := range l.cur {
-		if k == curMtx {
-			continue
+	printedHeader := false
+	for otherMtx, otherStackGID := range l.cur {
+		if otherMtx != curMtx {
+			if !printedHeader {
+				printedHeader = true
+				fmt.Fprintln(opts, "Other goroutines holding locks:")
+			}
+			fmt.Fprintf(opts, "goroutine %v lock %p\n", otherStackGID.gid, otherMtx)
+			printStack(opts, otherStackGID.stack)
 		}
-		empty = false
 	}
-	if empty {
-		return
+	if printedHeader {
+		fmt.Fprintln(opts)
 	}
-	fmt.Fprintln(opts, "Other goroutines holding locks:")
-	for k, pp := range l.cur {
-		if k == curMtx {
-			continue
-		}
-		fmt.Fprintf(opts, "goroutine %v lock %p\n", pp.gid, k)
-		printStack(opts, pp.stack)
-	}
-	fmt.Fprintln(opts)
 }
-
-const header = "POTENTIAL DEADLOCK:"

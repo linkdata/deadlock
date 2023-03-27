@@ -9,6 +9,8 @@ import (
 	"github.com/petermattis/goid"
 )
 
+const header = "POTENTIAL DEADLOCK:"
+
 // A DeadlockMutex is a drop-in replacement for sync.Mutex.
 type DeadlockMutex struct {
 	mu sync.Mutex
