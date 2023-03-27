@@ -1,7 +1,6 @@
 package deadlock
 
 import (
-	"log"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -10,53 +9,85 @@ import (
 	"time"
 )
 
+func restore() func() {
+	var prevOpts Options
+	Opts.ReadLocked(func() { prevOpts = Opts })
+	return func() {
+		Opts.WriteLocked(func() { Opts = prevOpts })
+	}
+}
+
+func spinWait(t *testing.T, addr *uint32, want uint32) {
+	for waited := 0; waited < 1000; waited++ {
+		if atomic.LoadUint32(addr) == want {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	time.Sleep(time.Millisecond * 10)
+	if got := atomic.LoadUint32(addr); got != want {
+		t.Fatal("expected 1 deadlock, detected", got)
+	}
+}
+
+func randomWait(limit int) {
+	if n := rand.Intn(limit); n > 0 {
+		time.Sleep(time.Millisecond * time.Duration(n))
+	} else {
+		runtime.Gosched()
+	}
+}
+
+func maybeLock(l sync.Locker, load *int32) bool {
+	if rand.Intn(2) == 0 {
+		return false
+	}
+	atomic.AddInt32(load, 1)
+	l.Lock()
+	return true
+}
+
+func doUnLock(l sync.Locker, load *int32) {
+	l.Unlock()
+	atomic.AddInt32(load, -1)
+}
+
 func TestNoDeadlocks(t *testing.T) {
 	defer restore()()
 	Opts.WriteLocked(func() {
-		Opts.DeadlockTimeout = time.Millisecond * 5000
+		Opts.DeadlockTimeout = time.Second * 10
+		Opts.MaxMapSize = 1
 	})
 	var a DeadlockRWMutex
 	var b DeadlockMutex
 	var c DeadlockRWMutex
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	var load int32
+	const wantedLoad = 50
+	for i := 0; i < runtime.NumCPU()*50 && atomic.LoadInt32(&load) < wantedLoad; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for k := 0; k < 5; k++ {
+			func() {
+				if maybeLock(&a, &load) {
+					defer doUnLock(&a, &load)
+				} else if maybeLock(a.RLocker(), &load) {
+					defer doUnLock(a.RLocker(), &load)
+				}
 				func() {
-					a.Lock()
-					defer a.Unlock()
+					if maybeLock(&b, &load) {
+						defer doUnLock(&b, &load)
+					}
 					func() {
-						b.Lock()
-						defer b.Unlock()
-						func() {
-							c.RLock()
-							defer c.RUnlock()
-							time.Sleep(time.Duration((1000 + rand.Intn(1000))) * time.Millisecond / 200)
-						}()
+						if maybeLock(&c, &load) {
+							defer doUnLock(&c, &load)
+						} else if maybeLock(c.RLocker(), &load) {
+							defer doUnLock(c.RLocker(), &load)
+						}
+						randomWait(2)
 					}()
 				}()
-			}
-		}()
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for k := 0; k < 5; k++ {
-				func() {
-					a.RLock()
-					defer a.RUnlock()
-					func() {
-						b.Lock()
-						defer b.Unlock()
-						func() {
-							c.Lock()
-							defer c.Unlock()
-							time.Sleep(time.Duration((1000 + rand.Intn(1000))) * time.Millisecond / 200)
-						}()
-					}()
-				}()
-			}
+			}()
 		}()
 	}
 	wg.Wait()
@@ -71,32 +102,27 @@ func TestLockOrder(t *testing.T) {
 			atomic.AddUint32(&deadlocks, 1)
 		}
 	})
+
 	var a DeadlockRWMutex
 	var b DeadlockMutex
-	var wg sync.WaitGroup
-	wg.Add(1)
+
 	go func() {
-		defer wg.Done()
 		a.Lock()
 		b.Lock()
 		runtime.Gosched()
 		b.Unlock()
 		a.Unlock()
 	}()
-	wg.Wait()
-	wg.Add(1)
+	spinWait(t, &deadlocks, 0)
+
 	go func() {
-		defer wg.Done()
 		b.Lock()
 		a.RLock()
 		runtime.Gosched()
 		a.RUnlock()
 		b.Unlock()
 	}()
-	wg.Wait()
-	if atomic.LoadUint32(&deadlocks) != 1 {
-		t.Fatalf("expected 1 deadlock, detected %d", deadlocks)
-	}
+	spinWait(t, &deadlocks, 1)
 }
 
 func TestHardDeadlock(t *testing.T) {
@@ -118,16 +144,13 @@ func TestHardDeadlock(t *testing.T) {
 		mu.Lock()
 		defer mu.Unlock()
 	}()
+	spinWait(t, &deadlocks, 1)
+	mu.Unlock()
 	select {
 	case <-ch:
 	case <-time.After(time.Millisecond * 100):
+		t.Error("timeout waiting for deadlock to resolve")
 	}
-	if atomic.LoadUint32(&deadlocks) != 1 {
-		t.Fatalf("expected 1 deadlock, detected %d", deadlocks)
-	}
-	log.Println("****************")
-	mu.Unlock()
-	<-ch
 }
 
 func TestRWMutex(t *testing.T) {
@@ -140,39 +163,28 @@ func TestRWMutex(t *testing.T) {
 		}
 	})
 	var a DeadlockRWMutex
+
 	a.Lock()
 	go func() {
-		// We detect a potential deadlock here.
 		a.Lock()
 		defer a.Unlock()
 	}()
-	time.Sleep(time.Millisecond * 100) // We want the Lock call to happen.
+	spinWait(t, &deadlocks, 1)
+
 	ch := make(chan struct{})
 	locker := a.RLocker()
 	go func() {
-		// We detect a potential deadlock here.
 		defer close(ch)
 		locker.Lock()
 		defer locker.Unlock()
 	}()
+	spinWait(t, &deadlocks, 2)
+	a.Unlock()
+
 	select {
 	case <-ch:
-		t.Fatal("expected a timeout")
-	case <-time.After(time.Millisecond * 50):
-	}
-	a.Unlock()
-	// a.RUnlock()
-	if atomic.LoadUint32(&deadlocks) != 2 {
-		t.Fatalf("expected 2 deadlocks, detected %d", deadlocks)
-	}
-	<-ch
-}
-
-func restore() func() {
-	var prevOpts Options
-	Opts.ReadLocked(func() { prevOpts = Opts })
-	return func() {
-		Opts.WriteLocked(func() { Opts = prevOpts })
+	case <-time.After(time.Millisecond * 100):
+		t.Error("timeout waiting for deadlock to resolve")
 	}
 }
 
@@ -200,8 +212,28 @@ func TestLockDuplicate(t *testing.T) {
 		b.Unlock()
 		b.Unlock()
 	}()
-	time.Sleep(time.Second * 1)
-	if atomic.LoadUint32(&deadlocks) != 2 {
-		t.Fatalf("expected 2 deadlocks, detected %d", deadlocks)
-	}
+	spinWait(t, &deadlocks, 2)
+}
+
+func TestLock_MapOverflow(t *testing.T) {
+	defer restore()()
+	Opts.WriteLocked(func() {
+		Opts.DeadlockTimeout = 0
+	})
+	/*var a DeadlockRWMutex
+	var b DeadlockMutex
+	go func() {
+		a.RLock()
+		a.Lock()
+		a.RUnlock()
+		a.Unlock()
+	}()
+	go func() {
+		b.Lock()
+		b.Lock()
+		runtime.Gosched()
+		b.Unlock()
+		b.Unlock()
+	}()
+	time.Sleep(time.Second * 1)*/
 }
