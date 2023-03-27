@@ -54,8 +54,9 @@ func doUnLock(l sync.Locker, load *int32) {
 
 func TestNoDeadlocks(t *testing.T) {
 	defer restore()()
+	const timeout = time.Second * 10
 	Opts.WriteLocked(func() {
-		Opts.DeadlockTimeout = time.Second * 10
+		Opts.DeadlockTimeout = timeout
 		Opts.MaxMapSize = 1
 	})
 	var a DeadlockRWMutex
@@ -63,7 +64,7 @@ func TestNoDeadlocks(t *testing.T) {
 	var c DeadlockRWMutex
 	var wg sync.WaitGroup
 	var load int32
-	const wantedLoad = 50
+	const wantedLoad = 100
 	for i := 0; i < runtime.NumCPU()*50 && atomic.LoadInt32(&load) < wantedLoad; i++ {
 		wg.Add(1)
 		go func() {
@@ -90,7 +91,16 @@ func TestNoDeadlocks(t *testing.T) {
 			}()
 		}()
 	}
-	wg.Wait()
+	ch := make(chan struct{})
+	go func() {
+		defer close(ch)
+		wg.Wait()
+	}()
+	select {
+	case <-ch:
+	case <-time.After(timeout):
+		t.Error("timeout waiting for load test to finish")
+	}
 }
 
 func TestLockOrder(t *testing.T) {
@@ -213,27 +223,4 @@ func TestLockDuplicate(t *testing.T) {
 		b.Unlock()
 	}()
 	spinWait(t, &deadlocks, 2)
-}
-
-func TestLock_MapOverflow(t *testing.T) {
-	defer restore()()
-	Opts.WriteLocked(func() {
-		Opts.DeadlockTimeout = 0
-	})
-	/*var a DeadlockRWMutex
-	var b DeadlockMutex
-	go func() {
-		a.RLock()
-		a.Lock()
-		a.RUnlock()
-		a.Unlock()
-	}()
-	go func() {
-		b.Lock()
-		b.Lock()
-		runtime.Gosched()
-		b.Unlock()
-		b.Unlock()
-	}()
-	time.Sleep(time.Second * 1)*/
 }
