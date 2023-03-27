@@ -11,16 +11,14 @@ import (
 var optsLock sync.RWMutex
 
 type Options struct {
-	// Would disable lock order based deadlock detection if DisableLockOrderDetection == true.
-	DisableLockOrderDetection bool
 	// Waiting for a lock for longer than DeadlockTimeout is considered a deadlock.
 	// Ignored if DeadlockTimeout <= 0.
 	DeadlockTimeout time.Duration
 	// OnPotentialDeadlock is called each time a potential deadlock is detected -- either based on
 	// lock order or on lock wait time.
 	OnPotentialDeadlock func()
-	// Will keep MaxMapSize lock pairs (happens before // happens after) in the map.
-	// The map resets once the threshold is reached.
+	// Sets the maximum size of the map that tracks lock ordering.
+	// Setting this to zero or lower disables tracking of lock order.
 	MaxMapSize int
 	// Will dump stacktraces of all goroutines when inconsistent locking is detected.
 	PrintAllCurrentGoroutines bool

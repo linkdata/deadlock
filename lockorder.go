@@ -47,7 +47,7 @@ func (l *lockOrder) postLock(stack []uintptr, p interface{}) {
 func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
 	var opts Options
 	Opts.ReadLocked(func() { opts = Opts })
-	if opts.DisableLockOrderDetection {
+	if opts.MaxMapSize < 1 {
 		return
 	}
 	gid := goid.Get()
@@ -89,8 +89,12 @@ func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
 			opts.OnPotentialDeadlock()
 		}
 		l.order[beforeAfter{b, p}] = ss{bs.stack, stack}
-		if len(l.order) == opts.MaxMapSize { // Reset the map to keep memory footprint bounded.
-			l.order = map[beforeAfter]ss{}
+		// Reset the map to keep memory footprint bounded
+		if len(l.order) >= opts.MaxMapSize {
+			// This gets optimized to calling runtime.mapclear()
+			for k := range l.order {
+				delete(l.order, k)
+			}
 		}
 	}
 	l.mu.Unlock()

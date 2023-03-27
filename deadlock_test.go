@@ -103,7 +103,7 @@ func TestHardDeadlock(t *testing.T) {
 	defer restore()()
 	var deadlocks uint32
 	Opts.WriteLocked(func() {
-		Opts.DisableLockOrderDetection = true
+		Opts.MaxMapSize = 0
 		Opts.PrintAllCurrentGoroutines = true
 		Opts.DeadlockTimeout = time.Millisecond * 20
 		Opts.OnPotentialDeadlock = func() {
