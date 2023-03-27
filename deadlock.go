@@ -113,7 +113,6 @@ func lock(lockFn func(), ptr interface{}) {
 						lo.mu.Unlock()
 						break // Nobody seems to be holding the lock, try again.
 					}
-					optsLock.Lock()
 					fmt.Fprintln(&opts, header)
 					fmt.Fprintln(&opts, "Previous place where the lock was grabbed")
 					fmt.Fprintf(&opts, "goroutine %v lock %p\n", prev.gid, ptr)
@@ -137,7 +136,6 @@ func lock(lockFn func(), ptr interface{}) {
 					}
 					fmt.Fprintln(&opts)
 					opts.Flush()
-					optsLock.Unlock()
 					lo.mu.Unlock()
 					opts.OnPotentialDeadlock()
 					<-ch
