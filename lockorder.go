@@ -59,7 +59,7 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 				printStack(&opts, bs.stack)
 				l.other(&opts, p)
 				_ = opts.Flush()
-				opts.OnPotentialDeadlock()
+				opts.PotentialDeadlock()
 			}
 			continue
 		}
@@ -79,7 +79,7 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 			l.other(&opts, p)
 			fmt.Fprintln(&opts)
 			_ = opts.Flush()
-			opts.OnPotentialDeadlock()
+			opts.PotentialDeadlock()
 		}
 		l.order[beforeAfter{b, p}] = ss{bs.stack, stack}
 		// Reset the map to keep memory footprint bounded

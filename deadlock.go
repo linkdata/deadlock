@@ -137,7 +137,7 @@ func lock(lockFn func(), ptr interface{}) {
 					}
 					fmt.Fprintln(&opts)
 					_ = opts.Flush()
-					opts.OnPotentialDeadlock()
+					opts.PotentialDeadlock()
 					<-ch
 					return
 				case <-ch:

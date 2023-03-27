@@ -58,11 +58,16 @@ func (opts *Options) Flush() error {
 	return nil
 }
 
+func (opts *Options) PotentialDeadlock() {
+	if opts.OnPotentialDeadlock != nil {
+		opts.OnPotentialDeadlock()
+	}
+}
+
 // Opts control how deadlock detection behaves.
-// Options are supposed to be set once at a startup (say, when parsing flags).
+// To safely read or change options during runtime, use Opts.ReadLocked() and Opts.WriteLocked()
 var Opts = Options{
-	DeadlockTimeout:     time.Second * 30,
-	OnPotentialDeadlock: func() { os.Exit(2) },
-	MaxMapSize:          1024 * 64,
-	LogBuf:              os.Stderr,
+	DeadlockTimeout: time.Second * 30,
+	MaxMapSize:      1024 * 64,
+	LogBuf:          os.Stderr,
 }
