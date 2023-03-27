@@ -123,11 +123,11 @@ func lock(lockFn func(), curMtx interface{}) {
 					fmt.Fprintf(&opts, "goroutine %v lock %p\n", gid, curMtx)
 					printStack(&opts, stack)
 					stacks := stacks()
-					grs := bytes.Split(stacks, []byte("\n\n"))
-					for _, g := range grs {
-						if goid.ExtractGID(g) == prev.gid {
+					goroutineStackList := bytes.Split(stacks, []byte("\n\n"))
+					for _, goroutineStack := range goroutineStackList {
+						if goid.ExtractGID(goroutineStack) == prev.gid {
 							fmt.Fprintln(&opts, "Here is what goroutine", prev.gid, "doing now")
-							_, _ = opts.Write(g)
+							_, _ = opts.Write(goroutineStack)
 							fmt.Fprintln(&opts)
 						}
 					}
