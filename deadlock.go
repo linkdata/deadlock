@@ -114,31 +114,33 @@ func lock(lockFn func(), curMtx interface{}) {
 						gid, curMtx, opts.DeadlockTimeout)
 					printStack(&opts, stack)
 
-					lo.mu.Lock()
-					prev, ok := lo.cur[curMtx]
-					if !ok {
-						lo.mu.Unlock()
-						panic("previous lock not found")
-					}
-					fmt.Fprintf(&opts, "goroutine %v previously locked it from:\n", prev.gid)
-					printStack(&opts, prev.stack)
+					curStacks := stacks()
 
-					stacks := stacks()
-					goroutineStackList := bytes.Split(stacks, []byte("\n\n"))
-					for _, goroutineStack := range goroutineStackList {
-						if goid.ExtractGID(goroutineStack) == prev.gid {
-							fmt.Fprintf(&opts, "goroutine %v current stack:\n", prev.gid)
-							_, _ = opts.Write(goroutineStack)
-							fmt.Fprintln(&opts)
+					func() {
+						lo.mu.Lock()
+						defer lo.mu.Unlock()
+						if prev, ok := lo.cur[curMtx]; ok {
+							fmt.Fprintf(&opts, "goroutine %v previously locked it from:\n", prev.gid)
+							printStack(&opts, prev.stack)
+							goroutineStackList := bytes.Split(curStacks, []byte("\n\n"))
+							for _, goroutineStack := range goroutineStackList {
+								if goid.ExtractGID(goroutineStack) == prev.gid {
+									fmt.Fprintf(&opts, "goroutine %v current stack:\n", prev.gid)
+									_, _ = opts.Write(goroutineStack)
+									fmt.Fprintln(&opts)
+								}
+							}
+						} else {
+							panic("previous lock not found")
 						}
-					}
-					lo.otherLocked(&opts, curMtx)
-					lo.mu.Unlock()
+						lo.otherLocked(&opts, curMtx)
+					}()
 
-					if opts.PrintAllCurrentGoroutines {
+					if len(curStacks) > 0 && opts.PrintAllCurrentGoroutines {
 						fmt.Fprintln(&opts, "All current goroutines:")
-						_, _ = opts.Write(stacks)
+						_, _ = opts.Write(curStacks)
 					}
+
 					fmt.Fprintln(&opts)
 					_ = opts.Flush()
 					opts.PotentialDeadlock()
