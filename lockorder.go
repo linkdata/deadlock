@@ -35,13 +35,13 @@ func newLockOrder() *lockOrder {
 	}
 }
 
-func (l *lockOrder) postLock(gid int64, stack []uintptr, p interface{}) {
+func (l *lockOrder) postLock(gid int64, stack []uintptr, mtxPtr interface{}) {
 	l.mu.Lock()
-	l.cur[p] = stackGID{stack, gid}
+	l.cur[mtxPtr] = stackGID{stack, gid}
 	l.mu.Unlock()
 }
 
-func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
+func (l *lockOrder) preLock(gid int64, stack []uintptr, mtxPtr interface{}) {
 	var opts Options
 	Opts.ReadLocked(func() { opts = Opts })
 	if opts.MaxMapSize < 1 {
@@ -50,14 +50,14 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for b, bs := range l.cur {
-		if b == p {
+		if b == mtxPtr {
 			if bs.gid == gid {
 				fmt.Fprintln(&opts, header, "Recursive locking:")
 				fmt.Fprintf(&opts, "current goroutine %d lock %p\n", gid, b)
 				printStack(&opts, stack)
 				fmt.Fprintln(&opts, "Previous place where the lock was grabbed (same goroutine)")
 				printStack(&opts, bs.stack)
-				l.other(&opts, p)
+				l.other(&opts, mtxPtr)
 				_ = opts.Flush()
 				opts.PotentialDeadlock()
 			}
@@ -66,7 +66,7 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 		if bs.gid != gid { // We want locks taken in the same goroutine only.
 			continue
 		}
-		if s, ok := l.order[beforeAfter{p, b}]; ok {
+		if s, ok := l.order[beforeAfter{mtxPtr, b}]; ok {
 			fmt.Fprintln(&opts, header, "Inconsistent locking. saw this ordering in one goroutine:")
 			fmt.Fprintln(&opts, "happened before")
 			printStack(&opts, s.before)
@@ -76,12 +76,12 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 			printStack(&opts, bs.stack)
 			fmt.Fprintln(&opts, "happened after")
 			printStack(&opts, stack)
-			l.other(&opts, p)
+			l.other(&opts, mtxPtr)
 			fmt.Fprintln(&opts)
 			_ = opts.Flush()
 			opts.PotentialDeadlock()
 		}
-		l.order[beforeAfter{b, p}] = ss{bs.stack, stack}
+		l.order[beforeAfter{b, mtxPtr}] = ss{bs.stack, stack}
 		// Reset the map to keep memory footprint bounded
 		if len(l.order) >= opts.MaxMapSize {
 			// This gets optimized to calling runtime.mapclear()
