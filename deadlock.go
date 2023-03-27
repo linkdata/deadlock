@@ -92,12 +92,12 @@ func (m *DeadlockRWMutex) RLocker() sync.Locker {
 	return (*rlocker)(m)
 }
 
-func lock(lockFn func(), mtxPtr interface{}) {
+func lock(lockFn func(), curMtx interface{}) {
 	var opts Options
 	Opts.ReadLocked(func() { opts = Opts })
 	gid := goid.Get()
 	stack := callers(1)
-	lo.preLock(gid, stack, mtxPtr)
+	lo.preLock(gid, stack, curMtx)
 	if opts.DeadlockTimeout > 0 {
 		ch := make(chan struct{})
 		defer close(ch)
@@ -108,17 +108,17 @@ func lock(lockFn func(), mtxPtr interface{}) {
 				select {
 				case <-t.C:
 					lo.mu.Lock()
-					prev, ok := lo.cur[mtxPtr]
+					prev, ok := lo.cur[curMtx]
 					if !ok {
 						lo.mu.Unlock()
 						break // Nobody seems to be holding the lock, try again.
 					}
 					fmt.Fprintln(&opts, header)
 					fmt.Fprintln(&opts, "Previous place where the lock was grabbed")
-					fmt.Fprintf(&opts, "goroutine %v lock %p\n", prev.gid, mtxPtr)
+					fmt.Fprintf(&opts, "goroutine %v lock %p\n", prev.gid, curMtx)
 					printStack(&opts, prev.stack)
 					fmt.Fprintln(&opts, "Have been trying to lock it again for more than", opts.DeadlockTimeout)
-					fmt.Fprintf(&opts, "goroutine %v lock %p\n", gid, mtxPtr)
+					fmt.Fprintf(&opts, "goroutine %v lock %p\n", gid, curMtx)
 					printStack(&opts, stack)
 					stacks := stacks()
 					grs := bytes.Split(stacks, []byte("\n\n"))
@@ -129,7 +129,7 @@ func lock(lockFn func(), mtxPtr interface{}) {
 							fmt.Fprintln(&opts)
 						}
 					}
-					lo.other(&opts, mtxPtr)
+					lo.otherLocked(&opts, curMtx)
 					lo.mu.Unlock()
 					if opts.PrintAllCurrentGoroutines {
 						fmt.Fprintln(&opts, "All current goroutines:")
@@ -147,5 +147,5 @@ func lock(lockFn func(), mtxPtr interface{}) {
 		}()
 	}
 	lockFn()
-	lo.postLock(gid, stack, mtxPtr)
+	lo.postLock(gid, stack, curMtx)
 }

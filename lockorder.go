@@ -35,13 +35,13 @@ func newLockOrder() *lockOrder {
 	}
 }
 
-func (l *lockOrder) postLock(gid int64, stack []uintptr, mtxPtr interface{}) {
+func (l *lockOrder) postLock(gid int64, stack []uintptr, curMtx interface{}) {
 	l.mu.Lock()
-	l.cur[mtxPtr] = stackGID{stack, gid}
+	l.cur[curMtx] = stackGID{stack, gid}
 	l.mu.Unlock()
 }
 
-func (l *lockOrder) preLock(gid int64, stack []uintptr, mtxPtr interface{}) {
+func (l *lockOrder) preLock(gid int64, stack []uintptr, curMtx interface{}) {
 	var opts Options
 	Opts.ReadLocked(func() { opts = Opts })
 	if opts.MaxMapSize < 1 {
@@ -50,14 +50,14 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, mtxPtr interface{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for b, bs := range l.cur {
-		if b == mtxPtr {
+		if b == curMtx {
 			if bs.gid == gid {
 				fmt.Fprintln(&opts, header, "Recursive locking:")
 				fmt.Fprintf(&opts, "current goroutine %d lock %p\n", gid, b)
 				printStack(&opts, stack)
 				fmt.Fprintln(&opts, "Previous place where the lock was grabbed (same goroutine)")
 				printStack(&opts, bs.stack)
-				l.other(&opts, mtxPtr)
+				l.otherLocked(&opts, curMtx)
 				_ = opts.Flush()
 				opts.PotentialDeadlock()
 			}
@@ -66,7 +66,7 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, mtxPtr interface{}) {
 		if bs.gid != gid { // We want locks taken in the same goroutine only.
 			continue
 		}
-		if s, ok := l.order[beforeAfter{mtxPtr, b}]; ok {
+		if s, ok := l.order[beforeAfter{curMtx, b}]; ok {
 			fmt.Fprintln(&opts, header, "Inconsistent locking. saw this ordering in one goroutine:")
 			fmt.Fprintln(&opts, "happened before")
 			printStack(&opts, s.before)
@@ -76,12 +76,12 @@ func (l *lockOrder) preLock(gid int64, stack []uintptr, mtxPtr interface{}) {
 			printStack(&opts, bs.stack)
 			fmt.Fprintln(&opts, "happened after")
 			printStack(&opts, stack)
-			l.other(&opts, mtxPtr)
+			l.otherLocked(&opts, curMtx)
 			fmt.Fprintln(&opts)
 			_ = opts.Flush()
 			opts.PotentialDeadlock()
 		}
-		l.order[beforeAfter{b, mtxPtr}] = ss{bs.stack, stack}
+		l.order[beforeAfter{b, curMtx}] = ss{bs.stack, stack}
 		// Reset the map to keep memory footprint bounded
 		if len(l.order) >= opts.MaxMapSize {
 			// This gets optimized to calling runtime.mapclear()
@@ -98,11 +98,10 @@ func (l *lockOrder) postUnlock(p interface{}) {
 	l.mu.Unlock()
 }
 
-// Under lo.mu Locked.
-func (l *lockOrder) other(opts *Options, ptr interface{}) {
+func (l *lockOrder) otherLocked(opts *Options, curMtx interface{}) {
 	empty := true
 	for k := range l.cur {
-		if k == ptr {
+		if k == curMtx {
 			continue
 		}
 		empty = false
@@ -112,7 +111,7 @@ func (l *lockOrder) other(opts *Options, ptr interface{}) {
 	}
 	fmt.Fprintln(opts, "Other goroutines holding locks:")
 	for k, pp := range l.cur {
-		if k == ptr {
+		if k == curMtx {
 			continue
 		}
 		fmt.Fprintf(opts, "goroutine %v lock %p\n", pp.gid, k)
