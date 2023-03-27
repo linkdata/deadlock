@@ -3,8 +3,6 @@ package deadlock
 import (
 	"fmt"
 	"sync"
-
-	"github.com/petermattis/goid"
 )
 
 type lockOrder struct {
@@ -37,20 +35,18 @@ func newLockOrder() *lockOrder {
 	}
 }
 
-func (l *lockOrder) postLock(stack []uintptr, p interface{}) {
-	gid := goid.Get()
+func (l *lockOrder) postLock(gid int64, stack []uintptr, p interface{}) {
 	l.mu.Lock()
 	l.cur[p] = stackGID{stack, gid}
 	l.mu.Unlock()
 }
 
-func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
+func (l *lockOrder) preLock(gid int64, stack []uintptr, p interface{}) {
 	var opts Options
 	Opts.ReadLocked(func() { opts = Opts })
 	if opts.MaxMapSize < 1 {
 		return
 	}
-	gid := goid.Get()
 	l.mu.Lock()
 	for b, bs := range l.cur {
 		if b == p {

@@ -95,13 +95,13 @@ func (m *DeadlockRWMutex) RLocker() sync.Locker {
 func lock(lockFn func(), ptr interface{}) {
 	var opts Options
 	Opts.ReadLocked(func() { opts = Opts })
+	gid := goid.Get()
 	stack := callers(1)
-	lo.preLock(stack, ptr)
+	lo.preLock(gid, stack, ptr)
 	if opts.DeadlockTimeout <= 0 {
 		lockFn()
 	} else {
 		ch := make(chan struct{})
-		currentID := goid.Get()
 		go func() {
 			for {
 				t := time.NewTimer(opts.DeadlockTimeout)
@@ -120,7 +120,7 @@ func lock(lockFn func(), ptr interface{}) {
 					fmt.Fprintf(&opts, "goroutine %v lock %p\n", prev.gid, ptr)
 					printStack(&opts, prev.stack)
 					fmt.Fprintln(&opts, "Have been trying to lock it again for more than", opts.DeadlockTimeout)
-					fmt.Fprintf(&opts, "goroutine %v lock %p\n", currentID, ptr)
+					fmt.Fprintf(&opts, "goroutine %v lock %p\n", gid, ptr)
 					printStack(&opts, stack)
 					stacks := stacks()
 					grs := bytes.Split(stacks, []byte("\n\n"))
@@ -149,9 +149,9 @@ func lock(lockFn func(), ptr interface{}) {
 			}
 		}()
 		lockFn()
-		lo.postLock(stack, ptr)
+		lo.postLock(gid, stack, ptr)
 		close(ch)
 		return
 	}
-	lo.postLock(stack, ptr)
+	lo.postLock(gid, stack, ptr)
 }
