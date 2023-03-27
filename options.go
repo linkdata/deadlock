@@ -27,7 +27,6 @@ type Options struct {
 }
 
 // WriteLocked calls the given function with Opts locked for writing.
-// Not needed unless you modify options while locks are being held.
 func (opts *Options) WriteLocked(fn func()) {
 	optsLock.Lock()
 	defer optsLock.Unlock()
@@ -35,13 +34,13 @@ func (opts *Options) WriteLocked(fn func()) {
 }
 
 // ReadLocked calls the given function with Opts locked for reading.
-// Not needed unless you modify options while locks are being held.
 func (opts *Options) ReadLocked(fn func()) {
 	optsLock.RLock()
 	defer optsLock.RUnlock()
 	fn()
 }
 
+// Write implements io.Writer for Options.
 func (opts *Options) Write(b []byte) (int, error) {
 	if opts.LogBuf != nil {
 		return opts.LogBuf.Write(b)
@@ -49,6 +48,7 @@ func (opts *Options) Write(b []byte) (int, error) {
 	return 0, nil
 }
 
+// Flush will flush the LogBuf if it is a *bufio.Writer
 func (opts *Options) Flush() error {
 	if opts.LogBuf != nil {
 		if buf, ok := opts.LogBuf.(*bufio.Writer); ok {
@@ -58,6 +58,7 @@ func (opts *Options) Flush() error {
 	return nil
 }
 
+// PotentialDeadlock calls OnPotentialDeadlock if it is set.
 func (opts *Options) PotentialDeadlock() {
 	if opts.OnPotentialDeadlock != nil {
 		opts.OnPotentialDeadlock()
