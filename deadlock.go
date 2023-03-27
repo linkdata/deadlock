@@ -130,13 +130,11 @@ func lock(lockFn func(), curMtx interface{}) {
 									fmt.Fprintln(&opts)
 								}
 							}
-						} else {
-							panic("previous lock not found")
 						}
 						lo.otherLocked(&opts, curMtx)
 					}()
 
-					if len(curStacks) > 0 && opts.PrintAllCurrentGoroutines {
+					if opts.PrintAllCurrentGoroutines {
 						fmt.Fprintln(&opts, "All current goroutines:")
 						_, _ = opts.Write(curStacks)
 					}
