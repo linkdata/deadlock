@@ -99,7 +99,7 @@ func lock(lockFn func(), curMtx interface{}) {
 	Opts.ReadLocked(func() { opts = Opts })
 	gid := goid.Get()
 	stack := callers(1)
-	lo.preLock(gid, stack, curMtx)
+	lo.preLock(&opts, gid, stack, curMtx)
 	if opts.DeadlockTimeout > 0 {
 		ch := make(chan struct{})
 		defer close(ch)

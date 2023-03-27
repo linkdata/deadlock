@@ -41,9 +41,7 @@ func (l *lockOrder) postLock(gid int64, curStack []uintptr, curMtx interface{}) 
 	l.mu.Unlock()
 }
 
-func (l *lockOrder) preLock(gid int64, curStack []uintptr, curMtx interface{}) {
-	var opts Options
-	Opts.ReadLocked(func() { opts = Opts })
+func (l *lockOrder) preLock(opts *Options, gid int64, curStack []uintptr, curMtx interface{}) {
 	if opts.MaxMapSize < 1 {
 		return
 	}
@@ -52,12 +50,12 @@ func (l *lockOrder) preLock(gid int64, curStack []uintptr, curMtx interface{}) {
 	for otherMtx, otherStackGID := range l.cur {
 		if otherMtx == curMtx {
 			if otherStackGID.gid == gid {
-				fmt.Fprintln(&opts, header, "Recursive locking:")
-				fmt.Fprintf(&opts, "current goroutine %d lock %p\n", gid, otherMtx)
-				printStack(&opts, curStack)
-				fmt.Fprintln(&opts, "Previous place where the lock was grabbed (same goroutine)")
-				printStack(&opts, otherStackGID.stack)
-				l.otherLocked(&opts, curMtx)
+				fmt.Fprintln(opts, header, "Recursive locking:")
+				fmt.Fprintf(opts, "current goroutine %d lock %p\n", gid, otherMtx)
+				printStack(opts, curStack)
+				fmt.Fprintln(opts, "Previous place where the lock was grabbed (same goroutine)")
+				printStack(opts, otherStackGID.stack)
+				l.otherLocked(opts, curMtx)
 				_ = opts.Flush()
 				opts.PotentialDeadlock()
 			}
@@ -67,17 +65,17 @@ func (l *lockOrder) preLock(gid int64, curStack []uintptr, curMtx interface{}) {
 			continue
 		}
 		if otherStacks, ok := l.order[beforeAfterMtx{curMtx, otherMtx}]; ok {
-			fmt.Fprintln(&opts, header, "Inconsistent locking. saw this ordering in one goroutine:")
-			fmt.Fprintln(&opts, "happened before")
-			printStack(&opts, otherStacks.beforeStack)
-			fmt.Fprintln(&opts, "happened after")
-			printStack(&opts, otherStacks.afterStack)
-			fmt.Fprintln(&opts, "in another goroutine: happened before")
-			printStack(&opts, otherStackGID.stack)
-			fmt.Fprintln(&opts, "happened after")
-			printStack(&opts, curStack)
-			l.otherLocked(&opts, curMtx)
-			fmt.Fprintln(&opts)
+			fmt.Fprintln(opts, header, "Inconsistent locking. saw this ordering in one goroutine:")
+			fmt.Fprintln(opts, "happened before")
+			printStack(opts, otherStacks.beforeStack)
+			fmt.Fprintln(opts, "happened after")
+			printStack(opts, otherStacks.afterStack)
+			fmt.Fprintln(opts, "in another goroutine: happened before")
+			printStack(opts, otherStackGID.stack)
+			fmt.Fprintln(opts, "happened after")
+			printStack(opts, curStack)
+			l.otherLocked(opts, curMtx)
+			fmt.Fprintln(opts)
 			_ = opts.Flush()
 			opts.PotentialDeadlock()
 		}
