@@ -98,10 +98,9 @@ func lock(lockFn func(), ptr interface{}) {
 	gid := goid.Get()
 	stack := callers(1)
 	lo.preLock(gid, stack, ptr)
-	if opts.DeadlockTimeout <= 0 {
-		lockFn()
-	} else {
+	if opts.DeadlockTimeout > 0 {
 		ch := make(chan struct{})
+		defer close(ch)
 		go func() {
 			for {
 				t := time.NewTimer(opts.DeadlockTimeout)
@@ -148,10 +147,7 @@ func lock(lockFn func(), ptr interface{}) {
 				}
 			}
 		}()
-		lockFn()
-		lo.postLock(gid, stack, ptr)
-		close(ch)
-		return
 	}
+	lockFn()
 	lo.postLock(gid, stack, ptr)
 }
