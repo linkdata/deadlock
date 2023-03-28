@@ -14,24 +14,17 @@ func callers(skip int) []uintptr {
 }
 
 func printStack(w io.Writer, stack []uintptr) {
-	for _, pc := range stack {
-		if f := runtime.FuncForPC(pc); f != nil {
-			var pkg string
-			name := f.Name()
-			if pos := strings.LastIndexByte(name, '/'); pos >= 0 {
-				name = name[pos+1:]
-			}
-			if pos := strings.IndexByte(name, '.'); pos >= 0 {
-				pkg = name[:pos]
-				name = name[pos+1:]
-				if (pkg == "runtime" && name == "goexit") || (pkg == "testing" && name == "tRunner") {
-					break
-				}
-			}
-			file, line := f.FileLine(pc)
-			fmt.Fprintf(w, "  %s()\n", f.Name())
-			fmt.Fprintf(w, "      %s:%d +0x%x\n", file, line-1, pc-f.Entry())
+	frames := runtime.CallersFrames(stack)
+	var frame runtime.Frame
+	more := true
+	for more {
+		frame, more = frames.Next()
+		if strings.HasPrefix(frame.Function, "runtime.goexit") ||
+			strings.HasPrefix(frame.Function, "testing.tRunner") {
+			break
 		}
+		fmt.Fprintf(w, "  %s()\n", frame.Function)
+		fmt.Fprintf(w, "      %s:%d +0x%x\n", frame.File, frame.Line, frame.PC-frame.Entry)
 	}
 	fmt.Fprintln(w)
 }
