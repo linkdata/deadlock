@@ -30,12 +30,10 @@ run or test your code with the race detector.
 ```go
 import "github.com/linkdata/deadlock"
 
-// Use normally, it works exactly like sync.Mutex does.
 var mu deadlock.Mutex
 mu.Lock()
 defer mu.Unlock()
 
-// Or, using a RWMutex, same procedure
 var rw deadlock.RWMutex
 rw.RLock()
 defer rw.RUnlock()

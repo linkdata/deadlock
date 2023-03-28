@@ -11,7 +11,7 @@ import (
 
 const header = "POTENTIAL DEADLOCK:"
 
-// A DeadlockMutex is a drop-in replacement for sync.Mutex.
+// A DeadlockMutex is a drop-in replacement for sync.Mutex, except it does not support TryLock().
 type DeadlockMutex struct {
 	mu sync.Mutex
 }
@@ -37,7 +37,7 @@ func (m *DeadlockMutex) Unlock() {
 	lo.postUnlock(m)
 }
 
-// An DeadlockRWMutex is a drop-in replacement for sync.RWMutex.
+// An DeadlockRWMutex is a drop-in replacement for sync.RWMutex, except it does not support TryLock().
 type DeadlockRWMutex struct {
 	mu sync.RWMutex
 }
