@@ -81,66 +81,60 @@ In addition, if it sees that we are waiting on a lock for a long time (opts.Dead
 #### Inconsistent lock ordering:
 
 ```
-POTENTIAL DEADLOCK: Inconsistent locking. saw this ordering in one goroutine:
-happened before
-  github.com/linkdata/deadlock.TestLockOrder.func2()
-      /home/user/src/deadlock/deadlock_test.go:80 +0x111
+POTENTIAL DEADLOCK: Inconsistent locking:
+in one goroutine: happened before
   github.com/linkdata/deadlock.(*DeadlockRWMutex).Lock()
-      /home/user/src/deadlock/deadlock.go:51 +0x8e
+      /home/user/src/deadlock/deadlock.go:55 +0xa8
+  github.com/linkdata/deadlock.TestLockOrder.func2()
+      /home/user/src/deadlock/deadlock_test.go:120 +0x34
 
 happened after
-  github.com/linkdata/deadlock.TestLockOrder.func2()
-      /home/user/src/deadlock/deadlock_test.go:81 +0x191
   github.com/linkdata/deadlock.(*DeadlockMutex).Lock()
-      /home/user/src/deadlock/deadlock.go:22 +0x112
+      /home/user/src/deadlock/deadlock.go:26 +0x11a
+  github.com/linkdata/deadlock.TestLockOrder.func2()
+      /home/user/src/deadlock/deadlock_test.go:121 +0xa9
 
 in another goroutine: happened before
-  github.com/linkdata/deadlock.TestLockOrder.func3()
-      /home/user/src/deadlock/deadlock_test.go:90 +0x10b
   github.com/linkdata/deadlock.(*DeadlockMutex).Lock()
-      /home/user/src/deadlock/deadlock.go:22 +0x8e
+      /home/user/src/deadlock/deadlock.go:26 +0xa5
+  github.com/linkdata/deadlock.TestLockOrder.func3()
+      /home/user/src/deadlock/deadlock_test.go:129 +0x34
 
 happened after
-  github.com/linkdata/deadlock.TestLockOrder.func3()
-      /home/user/src/deadlock/deadlock_test.go:91 +0x191
   github.com/linkdata/deadlock.(*DeadlockRWMutex).RLock()
-      /home/user/src/deadlock/deadlock.go:70 +0x10c
+      /home/user/src/deadlock/deadlock.go:74 +0x11a
+  github.com/linkdata/deadlock.TestLockOrder.func3()
+      /home/user/src/deadlock/deadlock_test.go:130 +0xa6
 ```
 
 #### Waiting for a lock for a long time:
 
 ```
 POTENTIAL DEADLOCK:
-Previous place where the lock was grabbed
-goroutine 375 lock 0xc0003b21a8
-  github.com/linkdata/deadlock.TestHardDeadlock()
-      /home/user/src/deadlock/deadlock_test.go:114 +0x165
+goroutine 624 have been trying to lock 0xc0009a20d8 for more than 20ms:
   github.com/linkdata/deadlock.(*DeadlockMutex).Lock()
-      /home/user/src/deadlock/deadlock.go:22 +0xe7
-
-Have been trying to lock it again for more than 20ms
-goroutine 377 lock 0xc0003b21a8
+      /home/user/src/deadlock/deadlock.go:26 +0x113
   github.com/linkdata/deadlock.TestHardDeadlock.func2()
-      /home/user/src/deadlock/deadlock_test.go:118 +0x114
-  github.com/linkdata/deadlock.(*DeadlockMutex).Lock()
-      /home/user/src/deadlock/deadlock.go:22 +0x93
+      /home/user/src/deadlock/deadlock_test.go:154 +0x92
 
-Here is what goroutine 375 doing now
-goroutine 375 [select]:
-github.com/linkdata/deadlock.TestHardDeadlock(0xc0003a2d00)
-        /home/user/src/deadlock/deadlock_test.go:121 +0x2e5
-testing.tRunner(0xc0003a2d00, 0x61a618)
+goroutine 622 previously locked it from:
+  github.com/linkdata/deadlock.(*DeadlockMutex).Lock()
+      /home/user/src/deadlock/deadlock.go:26 +0x164
+  github.com/linkdata/deadlock.TestHardDeadlock()
+      /home/user/src/deadlock/deadlock_test.go:150 +0xe6
+
+goroutine 622 current stack:
+goroutine 622 [sleep]:
+time.Sleep(0xf4240)
+        /usr/local/go/src/runtime/time.go:195 +0x135
+github.com/linkdata/deadlock.spinWait(0xc000988340, 0x0?, 0x1)
+        /home/user/src/deadlock/deadlock_test.go:25 +0x3e
+github.com/linkdata/deadlock.TestHardDeadlock(0xc000988340)
+        /home/user/src/deadlock/deadlock_test.go:157 +0x265
+testing.tRunner(0xc000988340, 0x6187e8)
         /usr/local/go/src/testing/testing.go:1576 +0x217
 created by testing.(*T).Run
         /usr/local/go/src/testing/testing.go:1629 +0x806
-All current goroutines:
-goroutine 378 [running]:
-github.com/linkdata/deadlock.stacks()
-        /home/user/src/deadlock/stacktraces.go:46 +0xdf
-github.com/linkdata/deadlock.lock.func2()
-        /home/user/src/deadlock/deadlock.go:125 +0x5d0
-created by github.com/linkdata/deadlock.lock
-        /home/user/src/deadlock/deadlock.go:105 +0x34f
 ```
 
 ## Configuring
