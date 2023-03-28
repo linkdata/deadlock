@@ -42,11 +42,17 @@ func (l *lockOrder) postLock(gid int64, curStack []uintptr, curMtx interface{}) 
 }
 
 func (l *lockOrder) preLock(opts *Options, gid int64, curStack []uintptr, curMtx interface{}) {
-	if opts.MaxMapSize < 1 {
-		return
-	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	// Reset the map to keep memory footprint bounded
+	if len(l.order) >= opts.MaxMapSize {
+		// This gets optimized to calling runtime.mapclear()
+		for k := range l.order {
+			delete(l.order, k)
+		}
+	}
+
 	for otherMtx, otherStackGID := range l.cur {
 		if otherMtx == curMtx {
 			if otherStackGID.gid == gid {
@@ -80,14 +86,8 @@ func (l *lockOrder) preLock(opts *Options, gid int64, curStack []uintptr, curMtx
 			_ = opts.Flush()
 			opts.PotentialDeadlock()
 		}
+
 		l.order[beforeAfterMtx{otherMtx, curMtx}] = beforeAfterStack{otherStackGID.stack, curStack}
-		// Reset the map to keep memory footprint bounded
-		if len(l.order) >= opts.MaxMapSize {
-			// This gets optimized to calling runtime.mapclear()
-			for k := range l.order {
-				delete(l.order, k)
-			}
-		}
 	}
 }
 

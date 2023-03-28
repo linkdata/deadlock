@@ -98,8 +98,12 @@ func lock(lockFn func(), curMtx interface{}) {
 	var opts Options
 	Opts.ReadLocked(func() { opts = Opts })
 	gid := goid.Get()
-	stack := callers(1)
-	lo.preLock(&opts, gid, stack, curMtx)
+	curStack := callers(1)
+
+	if opts.MaxMapSize > 0 {
+		lo.preLock(&opts, gid, curStack, curMtx)
+	}
+
 	if opts.DeadlockTimeout > 0 {
 		ch := make(chan struct{})
 		defer close(ch)
@@ -112,7 +116,7 @@ func lock(lockFn func(), curMtx interface{}) {
 					fmt.Fprintln(&opts, header)
 					fmt.Fprintf(&opts, "goroutine %v have been trying to lock %p for more than %v:\n",
 						gid, curMtx, opts.DeadlockTimeout)
-					printStack(&opts, stack)
+					printStack(&opts, curStack)
 
 					curStacks := stacks()
 
@@ -151,5 +155,5 @@ func lock(lockFn func(), curMtx interface{}) {
 		}()
 	}
 	lockFn()
-	lo.postLock(gid, stack, curMtx)
+	lo.postLock(gid, curStack, curMtx)
 }
