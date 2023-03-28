@@ -224,3 +224,40 @@ func TestLockDuplicate(t *testing.T) {
 	}()
 	spinWait(t, &deadlocks, 2)
 }
+
+//go:noinline
+func lockOne(m *DeadlockMutex) {
+	m.Lock()
+	runtime.Gosched()
+	m.Unlock()
+}
+
+//go:noinline
+func lockTwo(wg *sync.WaitGroup, count int, m1, m2 *DeadlockMutex) {
+	defer wg.Done()
+	for n := 0; n < count; n++ {
+		m1.Lock()
+		lockOne(m2)
+		m1.Unlock()
+	}
+}
+
+func BenchmarkDeadlocks(b *testing.B) {
+	defer restore()()
+	var deadlocks uint32
+	Opts.WriteLocked(func() {
+		Opts.DeadlockTimeout = time.Minute
+		Opts.OnPotentialDeadlock = func() {
+			atomic.AddUint32(&deadlocks, 1)
+		}
+	})
+	var wg sync.WaitGroup
+	var m1, m2 DeadlockMutex
+	wg.Add(2)
+	go lockTwo(&wg, b.N, &m1, &m2)
+	go lockTwo(&wg, b.N, &m1, &m2)
+	wg.Wait()
+	if atomic.LoadUint32(&deadlocks) > 0 {
+		b.Fatal("expected no deadlocks, got", deadlocks)
+	}
+}
