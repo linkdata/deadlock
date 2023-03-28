@@ -28,11 +28,12 @@ type beforeAfterStack struct {
 
 var lo = newLockOrder()
 
-func newLockOrder() *lockOrder {
-	return &lockOrder{
+func newLockOrder() (lo *lockOrder) {
+	lo = &lockOrder{
 		cur:   map[interface{}]stackGID{},
 		order: map[beforeAfterMtx]beforeAfterStack{},
 	}
+	return
 }
 
 func (l *lockOrder) postLock(gid int64, curStack []uintptr, curMtx interface{}) {
