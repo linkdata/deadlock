@@ -25,7 +25,8 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
         env:
-          GOPATH: $HOME
+          GOPATH: ${{ github.workspace }}
+          GO111MODULE: off
 
       - name: Show env
         run: go env
