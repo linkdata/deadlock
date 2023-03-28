@@ -98,7 +98,7 @@ func lock(lockFn func(), curMtx interface{}) {
 	var opts Options
 	Opts.ReadLocked(func() { opts = Opts })
 	gid := goid.Get()
-	curStack := callers(1)
+	curStack := callers(2)
 
 	if opts.MaxMapSize > 0 {
 		lo.preLock(&opts, gid, curStack, curMtx)
