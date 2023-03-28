@@ -13,7 +13,6 @@ jobs:
       fail-fast: false
       matrix:
         go:
-          - "1.5"
           - "1.16"
           - "1.18"
           - "1.20"
@@ -24,12 +23,6 @@ jobs:
         uses: actions/setup-go@v4.0.0
         with:
           go-version: ${{ matrix.go }}
-        env:
-          GOPATH: ${{ github.workspace }}
-          GO111MODULE: off
-
-      - name: Show env
-        run: go env
 
       - name: Build
         run: go get ./... && go build -v ./...
