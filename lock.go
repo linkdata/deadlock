@@ -20,7 +20,7 @@ func lock(tryLockFn func() bool, lockFn func(), curMtx interface{}) {
 		lo.preLock(&opts, gid, curStack, curMtx)
 	}
 
-	if !tryLockFn() {
+	if tryLockFn == nil || !tryLockFn() {
 		if opts.DeadlockTimeout > 0 {
 			ch := make(chan struct{})
 			defer close(ch)

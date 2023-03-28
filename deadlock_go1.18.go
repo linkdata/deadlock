@@ -1,5 +1,5 @@
-//go:build go1.4 && !go1.18
-// +build go1.4,!go1.18
+//go:build go1.18
+// +build go1.18
 
 package deadlock
 
@@ -19,7 +19,7 @@ type DeadlockMutex struct {
 // Logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *DeadlockMutex) Lock() {
-	lock(nil, m.mu.Lock, m)
+	lock(m.mu.TryLock, m.mu.Lock, m)
 }
 
 // Unlock unlocks the mutex.
@@ -48,7 +48,7 @@ type DeadlockRWMutex struct {
 // Logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *DeadlockRWMutex) Lock() {
-	lock(nil, m.mu.Lock, m)
+	lock(m.mu.TryLock, m.mu.Lock, m)
 }
 
 // Unlock unlocks the mutex for writing.  It is a run-time error if rw is
@@ -67,7 +67,7 @@ func (m *DeadlockRWMutex) Unlock() {
 // Logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *DeadlockRWMutex) RLock() {
-	lock(nil, m.mu.RLock, m)
+	lock(m.mu.TryRLock, m.mu.RLock, m)
 }
 
 // RUnlock undoes a single RLock call;

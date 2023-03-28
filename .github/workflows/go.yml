@@ -11,15 +11,19 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
+    strategy:
+      matrix:
+        go: ["1.4", "1.16", "1.18"]
+    name: Go ${{ matrix.go }} sample
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.16
+          go-version: ${{ matrix.go }}
 
       - name: Build
         run: go build -v ./...
