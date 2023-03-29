@@ -9,7 +9,7 @@ Based on https://github.com/sasha-s/go-deadlock.
 Changes from that package:
 * Uses build tags to eliminate all overhead when not enabled
 * Tests now pass race checker and improves code coverage
-* Improved (2x) performance when using go 1.18+
+* Improved performance when using go 1.18+
 * Diagnostic output matches `-race` style and uses `runtime.CallersFrames` to get correct line numbers
 * Adds `deadlock.Enabled` constant
 * Drops the dummy implementations for types other than `Mutex` and `RWMutex`
@@ -39,10 +39,10 @@ defer rw.RUnlock()
 ```
 
 ```sh
-go run -race ./...
+go run -race .
 ```
 
-### Deadlocks
+## Deadlocks
 
 Taking the same lock twice in the same goroutine will deadlock:
 ```go
@@ -51,10 +51,9 @@ A.RLock() // or A.Lock()
 A.Lock() // or A.RLock()
 ```
 
-Those cases will usually be reported immediately as they occur. Also, in case we wait for a lock for more than 
+Those cases will be reported immediately when they occur. Also, in case we wait for a lock for more than 
 `deadlock.Opts.DeadlockTimeout` (30 seconds by default), we also report that as a potential deadlock.
 Settings the `DeadlockTimeout` to zero disables this detection.
-
 
 #### Sample output
 ```
@@ -87,8 +86,8 @@ created by testing.(*T).Run
 
 ## Inconsistent lock ordering
 
-One of the most common sources of deadlocks is inconsistent lock ordering:
-say, you have two mutexes A and B, and in some goroutines you have
+One of the most common sources of deadlocks is inconsistent lock ordering.
+If you have two mutexes A and B, and in one goroutine you have:
 ```go
 A.Lock() // defer A.Unlock() or similar.
 ...
@@ -139,4 +138,4 @@ Have a look at [Opts](https://pkg.go.dev/github.com/linkdata/deadlock#pkg-variab
 * `Opts.OnPotentialDeadlock`: callback for when a deadlock is detected, or panic if nil
 * `Opts.MaxMapSize`: size of happens before // happens after table, disables inconsistent locking order detection if zero
 * `Opts.PrintAllCurrentGoroutines`: if true, dump stacktraces of all goroutines when inconsistent locking is detected
-* `Opts.LogBuf`: where to write deadlock info/stacktraces, set to os.Stderr by default
+* `Opts.LogBuf`: where to write deadlock info/stacktraces, default is `os.Stderr`
