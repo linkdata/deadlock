@@ -8,9 +8,13 @@ import (
 	"sync/atomic"
 )
 
-func callers(skip int) []uintptr {
-	s := make([]uintptr, 50) // Most relevant context seem to appear near the top of the stack.
-	return s[:runtime.Callers(2+skip, s)]
+func callers(skip int) (retv []uintptr) {
+	tmp := make([]uintptr, 50)
+	if n := runtime.Callers(2+skip, tmp); n > 0 {
+		retv = make([]uintptr, n)
+		copy(retv, tmp[:n])
+	}
+	return
 }
 
 func printStack(w io.Writer, stack []uintptr) {
