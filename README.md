@@ -7,12 +7,12 @@
 Based on https://github.com/sasha-s/go-deadlock.
 
 Changes from that package:
-* Uses build tags to eliminate all overhead when not in use
+* Uses build tags to eliminate all overhead when not enabled
 * Tests now pass race checker and improves code coverage
-* This package drops the dummy implementations for types other than Mutex and RWMutex, just use sync for those
-* Adds `deadlock.Enabled` constant
-* Diagnostic output matches `-race` style
 * Improved (2x) performance when using go 1.18+
+* Diagnostic output matches `-race` style and uses `runtime.CallersFrames` to get correct line numbers
+* Adds `deadlock.Enabled` constant
+* Drops the dummy implementations for types other than `Mutex` and `RWMutex`
 
 ## Installation
 
@@ -135,8 +135,8 @@ happened after
 
 Have a look at [Opts](https://pkg.go.dev/github.com/linkdata/deadlock#pkg-variables).
 
-* `Opts.DeadlockTimeout`: blocking on mutex for longer than DeadlockTimeout is considered a deadlock. ignored if negative
-* `Opts.OnPotentialDeadlock`: callback for then deadlock is detected
-* `Opts.MaxMapSize`: size of happens before // happens after table, can also disable order based deadlock detection
-* `Opts.PrintAllCurrentGoroutines`:  dump stacktraces of all goroutines when inconsistent locking is detected, verbose
-* `Opts.LogBuf`: where to write deadlock info/stacktraces
+* `Opts.DeadlockTimeout`: blocking on mutex for longer than DeadlockTimeout is considered a deadlock, ignored if zero
+* `Opts.OnPotentialDeadlock`: callback for when a deadlock is detected, or panic if nil
+* `Opts.MaxMapSize`: size of happens before // happens after table, disables inconsistent locking order detection if zero
+* `Opts.PrintAllCurrentGoroutines`: if true, dump stacktraces of all goroutines when inconsistent locking is detected
+* `Opts.LogBuf`: where to write deadlock info/stacktraces, set to os.Stderr by default
