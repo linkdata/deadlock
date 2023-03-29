@@ -1,9 +1,15 @@
 package deadlock
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
+	"time"
+
+	"github.com/petermattis/goid"
 )
+
+const header = "POTENTIAL DEADLOCK:"
 
 type lockOrder struct {
 	mu    sync.Mutex                          // protects following
@@ -96,6 +102,49 @@ func (l *lockOrder) postUnlock(curMtx interface{}) {
 	l.mu.Lock()
 	delete(l.cur, curMtx)
 	l.mu.Unlock()
+}
+
+func (l *lockOrder) timeoutFn(ch <-chan struct{}, opts *Options, gid int64, curStack []uintptr, curMtx interface{}) {
+	t := time.NewTimer(opts.DeadlockTimeout)
+	defer t.Stop()
+	select {
+	case <-t.C:
+		fmt.Fprintln(opts, header)
+		fmt.Fprintf(opts, "goroutine %v have been trying to lock %p for more than %v:\n",
+			gid, curMtx, opts.DeadlockTimeout)
+		printStack(opts, curStack)
+
+		curStacks := stacks()
+
+		func() {
+			lo.mu.Lock()
+			defer lo.mu.Unlock()
+			if prev, ok := lo.cur[curMtx]; ok {
+				fmt.Fprintf(opts, "goroutine %v previously locked it from:\n", prev.gid)
+				printStack(opts, prev.stack)
+				goroutineStackList := bytes.Split(curStacks, []byte("\n\n"))
+				for _, goroutineStack := range goroutineStackList {
+					if goid.ExtractGID(goroutineStack) == prev.gid {
+						fmt.Fprintf(opts, "goroutine %v current stack:\n", prev.gid)
+						_, _ = opts.Write(goroutineStack)
+						fmt.Fprintln(opts)
+					}
+				}
+			}
+			lo.otherLocked(opts, curMtx)
+		}()
+
+		if opts.PrintAllCurrentGoroutines {
+			fmt.Fprintln(opts, "All current goroutines:")
+			_, _ = opts.Write(curStacks)
+		}
+
+		fmt.Fprintln(opts)
+		_ = opts.Flush()
+		opts.PotentialDeadlock()
+		<-ch
+	case <-ch:
+	}
 }
 
 func (l *lockOrder) otherLocked(opts *Options, curMtx interface{}) {
