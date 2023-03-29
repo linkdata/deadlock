@@ -8,12 +8,11 @@ Based on https://github.com/sasha-s/go-deadlock.
 
 Changes from that package:
 * Uses build tags to eliminate all overhead when not in use
-* Only supports Go 1.16+
-* Simplifies the code and improves code coverage
-* Tests now pass race checker
+* Tests now pass race checker and improves code coverage
 * This package drops the dummy implementations for types other than Mutex and RWMutex, just use sync for those
 * Adds `deadlock.Enabled` constant
 * Diagnostic output matches `-race` style
+* Improved (2x) performance when using go 1.18+
 
 ## Installation
 
@@ -45,68 +44,19 @@ go run -race ./...
 
 ### Deadlocks
 
-One of the most common sources of deadlocks is inconsistent lock ordering:
-say, you have two mutexes A and B, and in some goroutines you have
-```go
-A.Lock() // defer A.Unlock() or similar.
-...
-B.Lock() // defer B.Unlock() or similar.
-```
-And in another goroutine the order of locks is reversed:
-```go
-B.Lock() // defer B.Unlock() or similar.
-...
-A.Lock() // defer A.Unlock() or similar.
-```
-
-Another common sources of deadlocks is duplicate take a lock in a goroutine:
+Taking the same lock twice in the same goroutine will deadlock:
 ```go
 A.RLock() // or A.Lock()
 ...
 A.Lock() // or A.RLock()
 ```
 
-This does not guarantee a deadlock (maybe the goroutines above can never be running at the same time), but it usually a design flaw at least.
+Those cases will usually be reported immediately as they occur. Also, in case we wait for a lock for more than 
+`deadlock.Opts.DeadlockTimeout` (30 seconds by default), we also report that as a potential deadlock.
+Settings the `DeadlockTimeout` to zero disables this detection.
 
-deadlock can detect such cases (unless you cross goroutine boundary - say lock A, then spawn a goroutine, block until it is signals, and lock B inside of the goroutine), even if the deadlock itself happens very infrequently and is painful to reproduce!
 
-Each time deadlock sees a lock attempt for lock B, it records the order A before B, for each lock that is currently being held in the same goroutine, and it prints (and exits the program by default) when it sees the locking order being violated.
-
-In addition, if it sees that we are waiting on a lock for a long time (opts.DeadlockTimeout, 30 seconds by default), it reports a potential deadlock, also printing the stacktrace for a goroutine that is currently holding the lock we are desperately trying to grab.
-
-## Sample output
-
-#### Inconsistent lock ordering:
-
-```
-POTENTIAL DEADLOCK: Inconsistent locking:
-in one goroutine: happened before
-  github.com/linkdata/deadlock.(*DeadlockRWMutex).Lock()
-      /home/user/src/deadlock/deadlock.go:55 +0xa8
-  github.com/linkdata/deadlock.TestLockOrder.func2()
-      /home/user/src/deadlock/deadlock_test.go:120 +0x34
-
-happened after
-  github.com/linkdata/deadlock.(*DeadlockMutex).Lock()
-      /home/user/src/deadlock/deadlock.go:26 +0x11a
-  github.com/linkdata/deadlock.TestLockOrder.func2()
-      /home/user/src/deadlock/deadlock_test.go:121 +0xa9
-
-in another goroutine: happened before
-  github.com/linkdata/deadlock.(*DeadlockMutex).Lock()
-      /home/user/src/deadlock/deadlock.go:26 +0xa5
-  github.com/linkdata/deadlock.TestLockOrder.func3()
-      /home/user/src/deadlock/deadlock_test.go:129 +0x34
-
-happened after
-  github.com/linkdata/deadlock.(*DeadlockRWMutex).RLock()
-      /home/user/src/deadlock/deadlock.go:74 +0x11a
-  github.com/linkdata/deadlock.TestLockOrder.func3()
-      /home/user/src/deadlock/deadlock_test.go:130 +0xa6
-```
-
-#### Waiting for a lock for a long time:
-
+#### Sample output
 ```
 POTENTIAL DEADLOCK:
 goroutine 624 have been trying to lock 0xc0009a20d8 for more than 20ms:
@@ -133,6 +83,52 @@ testing.tRunner(0xc000988340, 0x6187e8)
         /usr/local/go/src/testing/testing.go:1576 +0x217
 created by testing.(*T).Run
         /usr/local/go/src/testing/testing.go:1629 +0x806
+```
+
+## Inconsistent lock ordering
+
+One of the most common sources of deadlocks is inconsistent lock ordering:
+say, you have two mutexes A and B, and in some goroutines you have
+```go
+A.Lock() // defer A.Unlock() or similar.
+...
+B.Lock() // defer B.Unlock() or similar.
+```
+And in another goroutine the order of locks is reversed:
+```go
+B.Lock() // defer B.Unlock() or similar.
+...
+A.Lock() // defer A.Unlock() or similar.
+```
+This does not guarantee a deadlock (maybe the goroutines above can never be running at the same time), but it is bad practice.
+Detection is enabled by default, but can be disabled by setting `deadlock.Opts.MaxMapSize` to zero.
+
+#### Sample output
+```
+POTENTIAL DEADLOCK: Inconsistent locking:
+in one goroutine: happened before
+  github.com/linkdata/deadlock.(*DeadlockRWMutex).Lock()
+      /home/user/src/deadlock/deadlock.go:55 +0xa8
+  github.com/linkdata/deadlock.TestLockOrder.func2()
+      /home/user/src/deadlock/deadlock_test.go:120 +0x34
+
+happened after
+  github.com/linkdata/deadlock.(*DeadlockMutex).Lock()
+      /home/user/src/deadlock/deadlock.go:26 +0x11a
+  github.com/linkdata/deadlock.TestLockOrder.func2()
+      /home/user/src/deadlock/deadlock_test.go:121 +0xa9
+
+in another goroutine: happened before
+  github.com/linkdata/deadlock.(*DeadlockMutex).Lock()
+      /home/user/src/deadlock/deadlock.go:26 +0xa5
+  github.com/linkdata/deadlock.TestLockOrder.func3()
+      /home/user/src/deadlock/deadlock_test.go:129 +0x34
+
+happened after
+  github.com/linkdata/deadlock.(*DeadlockRWMutex).RLock()
+      /home/user/src/deadlock/deadlock.go:74 +0x11a
+  github.com/linkdata/deadlock.TestLockOrder.func3()
+      /home/user/src/deadlock/deadlock_test.go:130 +0xa6
 ```
 
 ## Configuring
