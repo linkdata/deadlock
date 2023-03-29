@@ -133,7 +133,7 @@ happened after
 
 ## Configuring
 
-Options are stored in the global varible `deadlock.Opts`. See [Options](https://pkg.go.dev/github.com/linkdata/deadlock#Options).
+Options are stored in the global variable `deadlock.Opts`. See [Options](https://pkg.go.dev/github.com/linkdata/deadlock#Options).
 
 * `Opts.DeadlockTimeout`: blocking on mutex for longer than DeadlockTimeout is considered a deadlock, ignored if zero
 * `Opts.OnPotentialDeadlock`: callback for when a deadlock is detected, or panic if nil
