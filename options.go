@@ -11,18 +11,18 @@ import (
 var optsLock sync.RWMutex
 
 type Options struct {
-	// Waiting for a lock for longer than DeadlockTimeout is considered a deadlock.
-	// Ignored if DeadlockTimeout <= 0.
+	// Waiting for a lock for longer than a non-zero DeadlockTimeout is considered a deadlock.
+	// Set to 30 seconds by default.
 	DeadlockTimeout time.Duration
 	// OnPotentialDeadlock is called each time a potential deadlock is detected -- either based on
-	// lock order or on lock wait time.
+	// lock order or on lock wait time. If nil, panics instead.
 	OnPotentialDeadlock func()
 	// Sets the maximum size of the map that tracks lock ordering.
-	// Setting this to zero or lower disables tracking of lock order.
+	// Setting this to zero disables tracking of lock order. Default is a reasonable size.
 	MaxMapSize int
 	// Will dump stacktraces of all goroutines when inconsistent locking is detected.
 	PrintAllCurrentGoroutines bool
-	// Will print deadlock info to log buffer.
+	// Where to write reports, set to os.Stderr by default.
 	LogBuf io.Writer
 }
 
