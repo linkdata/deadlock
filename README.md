@@ -10,6 +10,7 @@ Changes from that package:
 * Uses build tags to eliminate all overhead when not enabled
 * Tests now pass race checker and improves code coverage
 * Improved performance when using go 1.18+
+* Uses significantly less memory
 * Diagnostic output matches `-race` style and uses `runtime.CallersFrames` to get correct line numbers
 * Adds `deadlock.Enabled` constant
 * Drops the dummy implementations for types other than `Mutex` and `RWMutex`
