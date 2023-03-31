@@ -78,6 +78,10 @@ func (m *DeadlockRWMutex) RLock() {
 	lock(m.mu.TryRLock, m.mu.RLock, m)
 }
 
+func (m *DeadlockRWMutex) TryRLock() bool {
+	return lock(m.mu.TryRLock, nil, m)
+}
+
 // RUnlock undoes a single RLock call;
 // it does not affect other simultaneous readers.
 // It is a run-time error if rw is not locked for reading
