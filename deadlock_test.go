@@ -53,6 +53,12 @@ func doUnLock(l sync.Locker, load *int32) {
 	atomic.AddInt32(load, -1)
 }
 
+func TestDummyLock(t *testing.T) {
+	// to keep full test coverage even though the code path
+	// is never taken on versions of go prior to 1.18
+	lock(nil, nil, nil)
+}
+
 func TestNoDeadlocks(t *testing.T) {
 	defer restore()()
 	const timeout = time.Second * 10
