@@ -13,6 +13,7 @@ Changes from that package:
 * Uses significantly less memory
 * Diagnostic output matches `-race` style and uses `runtime.CallersFrames` to get correct line numbers
 * Adds `deadlock.Enabled` constant
+* Adds `TryLock()` when using go 1.18+
 * Drops the dummy implementations for types other than `Mutex` and `RWMutex`
 
 ## Installation
