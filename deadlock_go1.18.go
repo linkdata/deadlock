@@ -22,6 +22,10 @@ func (m *DeadlockMutex) Lock() {
 	lock(m.mu.TryLock, m.mu.Lock, m)
 }
 
+func (m *DeadlockMutex) TryLock() bool {
+	return lock(m.mu.TryLock, nil, m)
+}
+
 // Unlock unlocks the mutex.
 // It is a run-time error if m is not locked on entry to Unlock.
 //
@@ -49,6 +53,10 @@ type DeadlockRWMutex struct {
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *DeadlockRWMutex) Lock() {
 	lock(m.mu.TryLock, m.mu.Lock, m)
+}
+
+func (m *DeadlockRWMutex) TryLock() bool {
+	return lock(m.mu.TryLock, nil, m)
 }
 
 // Unlock unlocks the mutex for writing.  It is a run-time error if rw is

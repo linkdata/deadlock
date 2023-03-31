@@ -18,6 +18,7 @@ func restore() func() {
 }
 
 func spinWait(t *testing.T, addr *uint32, want uint32) {
+	t.Helper()
 	for waited := 0; waited < 1000; waited++ {
 		if atomic.LoadUint32(addr) == want {
 			break
@@ -26,7 +27,7 @@ func spinWait(t *testing.T, addr *uint32, want uint32) {
 	}
 	time.Sleep(time.Millisecond * 10)
 	if got := atomic.LoadUint32(addr); got != want {
-		t.Fatal("expected 1 deadlock, detected", got)
+		t.Fatal("expected", want, "deadlocks, detected", got)
 	}
 }
 
