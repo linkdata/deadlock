@@ -55,7 +55,7 @@ A.Lock() // or A.RLock()
 
 Those cases will be reported immediately when they occur. Also, in case we wait for a lock for more than 
 `deadlock.Opts.DeadlockTimeout` (30 seconds by default), we also report that as a potential deadlock.
-Settings the `DeadlockTimeout` to zero disables this detection.
+Setting the `DeadlockTimeout` to zero disables this detection.
 
 #### Sample output
 ```
