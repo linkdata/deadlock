@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-// A DeadlockMutex is a drop-in replacement for sync.Mutex, except it does not support TryLock().
+// A DeadlockMutex is a drop-in replacement for sync.Mutex.
 type DeadlockMutex struct {
 	mu sync.Mutex
 }
@@ -37,7 +37,7 @@ func (m *DeadlockMutex) Unlock() {
 	lo.postUnlock(m)
 }
 
-// An DeadlockRWMutex is a drop-in replacement for sync.RWMutex, except it does not support TryLock().
+// An DeadlockRWMutex is a drop-in replacement for sync.RWMutex.
 type DeadlockRWMutex struct {
 	mu sync.RWMutex
 }
