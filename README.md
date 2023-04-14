@@ -12,7 +12,7 @@ Changes from that package:
 * Improved performance when using go 1.18+
 * Uses significantly less memory
 * Diagnostic output matches `-race` style and uses `runtime.CallersFrames` to get correct line numbers
-* Adds `deadlock.Enabled` constant
+* Adds `deadlock.Enabled` and `deadlock.Debug` constants
 * Adds `Try(R)Lock()` when using go 1.18+
 * Drops the dummy implementations for types other than `Mutex` and `RWMutex`
 
@@ -24,8 +24,8 @@ go get github.com/linkdata/deadlock
 
 ## Usage
 
-The package enables itself when either the 'deadlock' or 'race' build tag is set, and the
-'nodeadlock' build tag is not set. The easiest way is to simply use `deadlock.(RW)Mutex` and
+The package enables itself when either the `deadlock` or `race` build tag is set, and the
+`nodeadlock` build tag is *not* set. The easiest way is to simply use `deadlock.(RW)Mutex` and
 run or test your code with the race detector.
 
 ```go
@@ -130,6 +130,24 @@ happened after
       /home/user/src/deadlock/deadlock.go:74 +0x11a
   github.com/linkdata/deadlock.TestLockOrder.func3()
       /home/user/src/deadlock/deadlock_test.go:130 +0xa6
+```
+
+## Debugging constants
+
+It's often helpful to run extra runtime checks during development 
+and testing, but you don't want to have that code around in a
+production environment. Since these are constants, if the constant is
+false, code that depends on it being true gets removed entirely.
+
+We define two:
+
+* `deadlock.Debug` is true if either `race` or `debug` are set.
+* `deadlock.Enabled` is true if either `race` or `deadlock` are set and `nodeadlock` is *not* set.
+
+```go
+if deadlock.Debug {
+    // extra checks or logging go here
+}
 ```
 
 ## Configuring
