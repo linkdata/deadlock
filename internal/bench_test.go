@@ -8,9 +8,9 @@ import (
 	// deadlock "github.com/sasha-s/go-deadlock"
 )
 
-// To benchmark CPU:
-//  go test -tags deadlock -bench .
-// To benchmark memory:
+// To benchmark CPU and allocations:
+//  go test -tags deadlock -benchmem -bench .
+// To benchmark detailed memory usage:
 //  go test -tags deadlock -benchmem -memprofilerate=1 -memprofile mem.out -bench .
 //  go tool pprof mem.out
 

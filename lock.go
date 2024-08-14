@@ -1,13 +1,9 @@
 package deadlock
 
-import (
-	"github.com/petermattis/goid"
-)
-
 func lock(tryLockFn func() bool, lockFn func(), curMtx interface{}) bool {
 	var opts Options
 	Opts.ReadLocked(func() { opts = Opts })
-	gid := goid.Get()
+	gid := getGoid()
 	curStack := callers(2)
 
 	if lockFn != nil && opts.MaxMapSize > 0 {
