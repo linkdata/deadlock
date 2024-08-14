@@ -8,13 +8,24 @@ Based on https://github.com/sasha-s/go-deadlock.
 
 Changes from that package:
 * Uses build tags to eliminate all overhead when not enabled
-* Tests now pass race checker and improves code coverage
-* Improved performance when using go 1.18+
-* Uses significantly less memory (details in https://github.com/linkdata/deadlock/issues/2)
+* Tests pass race checker and has full code coverage
+* Guards against github.com/petermattis/goid not supporting the current Go version
 * Diagnostic output matches `-race` style and uses `runtime.CallersFrames` to get correct line numbers
 * Adds `deadlock.Enabled` and `deadlock.Debug` constants
 * Adds `Try(R)Lock()` when using go 1.18+
 * Drops the dummy implementations for types other than `Mutex` and `RWMutex`
+
+Also uses significantly less memory and CPU:
+
+```
+Using this package:
+BenchmarkLockSingle-24           2716491               444.1 ns/op            32 B/op          1 allocs/op
+BenchmarkLockParallel-24         2132055               483.0 ns/op            43 B/op          1 allocs/op
+
+Using https://github.com/sasha-s/go-deadlock@v0.3.3:
+BenchmarkLockSingle-24           1000000              1468 ns/op             593 B/op          3 allocs/op
+BenchmarkLockParallel-24          808564              1313 ns/op             593 B/op          3 allocs/op
+```
 
 ## Installation
 
