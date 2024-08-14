@@ -10,7 +10,7 @@ Changes from that package:
 * Uses build tags to eliminate all overhead when not enabled
 * Tests now pass race checker and improves code coverage
 * Improved performance when using go 1.18+
-* Uses significantly less memory
+* Uses significantly less memory (details in https://github.com/linkdata/deadlock/issues/2)
 * Diagnostic output matches `-race` style and uses `runtime.CallersFrames` to get correct line numbers
 * Adds `deadlock.Enabled` and `deadlock.Debug` constants
 * Adds `Try(R)Lock()` when using go 1.18+
