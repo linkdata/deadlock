@@ -26,7 +26,7 @@ func BenchmarkLockSingle(b *testing.B) {
 	}
 }
 
-func BenchmarkLockParalell(b *testing.B) {
+func BenchmarkLockParallel(b *testing.B) {
 	var mu deadlock.Mutex
 	b.RunParallel(
 		func(p *testing.PB) {
