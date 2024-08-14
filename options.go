@@ -5,13 +5,12 @@ import (
 	"io"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-var optsLock sync.RWMutex
-
 type Options struct {
-	// Waiting for a lock for longer than a non-zero DeadlockTimeout is considered a deadlock.
+	// Waiting for a lock for longer than a non-zero DeadlockTimeout milliseconds is considered a deadlock.
 	// Set to 30 seconds by default.
 	DeadlockTimeout time.Duration
 	// OnPotentialDeadlock is called each time a potential deadlock is detected -- either based on
@@ -26,11 +25,25 @@ type Options struct {
 	LogBuf io.Writer
 }
 
+var optsLock sync.RWMutex
+var maxMapSize int32 = 1024 * 64
+var deadlockTimeout int32 = 30 * 1000
+
+// Opts control how deadlock detection behaves.
+// To safely read or change options during runtime, use Opts.ReadLocked() and Opts.WriteLocked()
+var Opts = Options{
+	DeadlockTimeout: time.Millisecond * time.Duration(deadlockTimeout),
+	MaxMapSize:      int(maxMapSize),
+	LogBuf:          os.Stderr,
+}
+
 // WriteLocked calls the given function with Opts locked for writing.
 func (opts *Options) WriteLocked(fn func()) {
 	optsLock.Lock()
 	defer optsLock.Unlock()
 	fn()
+	atomic.StoreInt32(&maxMapSize, int32(opts.MaxMapSize))
+	atomic.StoreInt32(&deadlockTimeout, int32(opts.DeadlockTimeout.Nanoseconds()/int64(time.Millisecond)))
 }
 
 // ReadLocked calls the given function with Opts locked for reading.
@@ -64,12 +77,4 @@ func (opts *Options) PotentialDeadlock() {
 		panic("deadlock detected")
 	}
 	opts.OnPotentialDeadlock()
-}
-
-// Opts control how deadlock detection behaves.
-// To safely read or change options during runtime, use Opts.ReadLocked() and Opts.WriteLocked()
-var Opts = Options{
-	DeadlockTimeout: time.Second * 30,
-	MaxMapSize:      1024 * 64,
-	LogBuf:          os.Stderr,
 }

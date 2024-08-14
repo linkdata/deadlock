@@ -48,12 +48,12 @@ func (l *lockOrder) postLock(gid int64, curStack []uintptr, curMtx interface{}) 
 	l.mu.Unlock()
 }
 
-func (l *lockOrder) preLock(opts *Options, gid int64, curStack []uintptr, curMtx interface{}) {
+func (l *lockOrder) preLock(maxMapSize int, gid int64, curStack []uintptr, curMtx interface{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	// Reset the map to keep memory footprint bounded
-	if len(l.order) >= opts.MaxMapSize {
+	if len(l.order) >= maxMapSize {
 		// This gets optimized to calling runtime.mapclear()
 		for k := range l.order {
 			delete(l.order, k)
@@ -63,14 +63,14 @@ func (l *lockOrder) preLock(opts *Options, gid int64, curStack []uintptr, curMtx
 	for otherMtx, otherStackGID := range l.cur {
 		if otherMtx == curMtx {
 			if otherStackGID.gid == gid {
-				fmt.Fprintln(opts, header, "Recursive locking:")
-				fmt.Fprintf(opts, "goroutine %d lock %p:\n", gid, otherMtx)
-				printStack(opts, curStack)
-				fmt.Fprintln(opts, "same goroutine previously locked it from:")
-				printStack(opts, otherStackGID.stack)
-				l.otherLocked(opts, curMtx)
-				_ = opts.Flush()
-				opts.PotentialDeadlock()
+				fmt.Fprintln(&Opts, header, "Recursive locking:")
+				fmt.Fprintf(&Opts, "goroutine %d lock %p:\n", gid, otherMtx)
+				printStack(&Opts, curStack)
+				fmt.Fprintln(&Opts, "same goroutine previously locked it from:")
+				printStack(&Opts, otherStackGID.stack)
+				l.otherLocked(curMtx)
+				_ = Opts.Flush()
+				Opts.PotentialDeadlock()
 			}
 			continue
 		}
@@ -78,20 +78,20 @@ func (l *lockOrder) preLock(opts *Options, gid int64, curStack []uintptr, curMtx
 			continue
 		}
 		if otherStacks, ok := l.order[beforeAfterMtx{curMtx, otherMtx}]; ok {
-			fmt.Fprintln(opts, header, "Inconsistent locking:")
-			fmt.Fprintln(opts, "in one goroutine: happened before")
-			printStack(opts, otherStacks.beforeStack)
-			fmt.Fprintln(opts, "happened after")
-			printStack(opts, otherStacks.afterStack)
+			fmt.Fprintln(&Opts, header, "Inconsistent locking:")
+			fmt.Fprintln(&Opts, "in one goroutine: happened before")
+			printStack(&Opts, otherStacks.beforeStack)
+			fmt.Fprintln(&Opts, "happened after")
+			printStack(&Opts, otherStacks.afterStack)
 
-			fmt.Fprintln(opts, "in another goroutine: happened before")
-			printStack(opts, otherStackGID.stack)
-			fmt.Fprintln(opts, "happened after")
-			printStack(opts, curStack)
-			l.otherLocked(opts, curMtx)
-			fmt.Fprintln(opts)
-			_ = opts.Flush()
-			opts.PotentialDeadlock()
+			fmt.Fprintln(&Opts, "in another goroutine: happened before")
+			printStack(&Opts, otherStackGID.stack)
+			fmt.Fprintln(&Opts, "happened after")
+			printStack(&Opts, curStack)
+			l.otherLocked(curMtx)
+			fmt.Fprintln(&Opts)
+			_ = Opts.Flush()
+			Opts.PotentialDeadlock()
 		}
 
 		l.order[beforeAfterMtx{otherMtx, curMtx}] = beforeAfterStack{otherStackGID.stack, curStack}
@@ -104,15 +104,15 @@ func (l *lockOrder) postUnlock(curMtx interface{}) {
 	l.mu.Unlock()
 }
 
-func (l *lockOrder) timeoutFn(ch <-chan struct{}, opts *Options, gid int64, curStack []uintptr, curMtx interface{}) {
-	t := time.NewTimer(opts.DeadlockTimeout)
+func (l *lockOrder) timeoutFn(ch <-chan struct{}, timeout time.Duration, gid int64, curStack []uintptr, curMtx interface{}) {
+	t := time.NewTimer(timeout)
 	defer t.Stop()
 	select {
 	case <-t.C:
-		fmt.Fprintln(opts, header)
-		fmt.Fprintf(opts, "goroutine %v have been trying to lock %p for more than %v:\n",
-			gid, curMtx, opts.DeadlockTimeout)
-		printStack(opts, curStack)
+		fmt.Fprintln(&Opts, header)
+		fmt.Fprintf(&Opts, "goroutine %v have been trying to lock %p for more than %v:\n",
+			gid, curMtx, &Opts.DeadlockTimeout)
+		printStack(&Opts, curStack)
 
 		curStacks := stacks()
 
@@ -120,46 +120,46 @@ func (l *lockOrder) timeoutFn(ch <-chan struct{}, opts *Options, gid int64, curS
 			lo.mu.Lock()
 			defer lo.mu.Unlock()
 			if prev, ok := lo.cur[curMtx]; ok {
-				fmt.Fprintf(opts, "goroutine %v previously locked it from:\n", prev.gid)
-				printStack(opts, prev.stack)
+				fmt.Fprintf(&Opts, "goroutine %v previously locked it from:\n", prev.gid)
+				printStack(&Opts, prev.stack)
 				goroutineStackList := bytes.Split(curStacks, []byte("\n\n"))
 				for _, goroutineStack := range goroutineStackList {
 					if goid.ExtractGID(goroutineStack) == prev.gid {
-						fmt.Fprintf(opts, "goroutine %v current stack:\n", prev.gid)
-						_, _ = opts.Write(goroutineStack)
-						fmt.Fprintln(opts)
+						fmt.Fprintf(&Opts, "goroutine %v current stack:\n", prev.gid)
+						_, _ = Opts.Write(goroutineStack)
+						fmt.Fprintln(&Opts)
 					}
 				}
 			}
-			lo.otherLocked(opts, curMtx)
+			lo.otherLocked(curMtx)
 		}()
 
-		if opts.PrintAllCurrentGoroutines {
-			fmt.Fprintln(opts, "All current goroutines:")
-			_, _ = opts.Write(curStacks)
+		if Opts.PrintAllCurrentGoroutines {
+			fmt.Fprintln(&Opts, "All current goroutines:")
+			_, _ = Opts.Write(curStacks)
 		}
 
-		fmt.Fprintln(opts)
-		_ = opts.Flush()
-		opts.PotentialDeadlock()
+		fmt.Fprintln(&Opts)
+		_ = Opts.Flush()
+		Opts.PotentialDeadlock()
 		<-ch
 	case <-ch:
 	}
 }
 
-func (l *lockOrder) otherLocked(opts *Options, curMtx interface{}) {
+func (l *lockOrder) otherLocked(curMtx interface{}) {
 	printedHeader := false
 	for otherMtx, otherStackGID := range l.cur {
 		if otherMtx != curMtx {
 			if !printedHeader {
 				printedHeader = true
-				fmt.Fprintln(opts, "Other goroutines holding locks:")
+				fmt.Fprintln(&Opts, "Other goroutines holding locks:")
 			}
-			fmt.Fprintf(opts, "goroutine %v lock %p\n", otherStackGID.gid, otherMtx)
-			printStack(opts, otherStackGID.stack)
+			fmt.Fprintf(&Opts, "goroutine %v lock %p\n", otherStackGID.gid, otherMtx)
+			printStack(&Opts, otherStackGID.stack)
 		}
 	}
 	if printedHeader {
-		fmt.Fprintln(opts)
+		fmt.Fprintln(&Opts)
 	}
 }
