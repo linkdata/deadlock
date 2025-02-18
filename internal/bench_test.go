@@ -9,9 +9,9 @@ import (
 )
 
 // To benchmark CPU and allocations:
-//  go test -tags deadlock -benchmem -bench .
+//  go test -tags deadlock -run=^$ -benchmem -bench ^Benchmark ./...
 // To benchmark detailed memory usage:
-//  go test -tags deadlock -benchmem -memprofilerate=1 -memprofile mem.out -bench .
+//  go test -tags deadlock -run=^$ -benchmem -memprofilerate=1 -memprofile mem.out -bench ^Benchmark .
 //  go tool pprof mem.out
 
 func unlock(l sync.Locker) {
