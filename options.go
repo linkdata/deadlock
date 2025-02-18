@@ -42,8 +42,8 @@ func (opts *Options) WriteLocked(fn func()) {
 	optsLock.Lock()
 	defer optsLock.Unlock()
 	fn()
-	atomic.StoreInt32(&maxMapSize, int32(opts.MaxMapSize))
-	atomic.StoreInt32(&deadlockTimeout, int32(opts.DeadlockTimeout.Nanoseconds()/int64(time.Millisecond)))
+	atomic.StoreInt32(&maxMapSize, int32(opts.MaxMapSize))                                                 //#nosec G115
+	atomic.StoreInt32(&deadlockTimeout, int32(opts.DeadlockTimeout.Nanoseconds()/int64(time.Millisecond))) //#nosec G115
 }
 
 // ReadLocked calls the given function with Opts locked for reading.
