@@ -1,7 +1,7 @@
 name: Go
 
 permissions:
-  contents: write
+  contents: read, write
 
 on:
   push:
