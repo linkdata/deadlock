@@ -1,5 +1,5 @@
 [![build](https://github.com/linkdata/deadlock/actions/workflows/go.yml/badge.svg)](https://github.com/linkdata/deadlock/actions/workflows/go.yml)
-[![coverage](https://coveralls.io/repos/github/linkdata/deadlock/badge.svg?branch=main)](https://coveralls.io/github/linkdata/deadlock?branch=main)
+[![coverage](https://github.com/linkdata/deadlock/blob/badges/main/badge.svg)](https://htmlpreview.github.io/?https://github.com/linkdata/deadlock/blob/badges/main/coverage.html)
 [![goreport](https://goreportcard.com/badge/github.com/linkdata/deadlock)](https://goreportcard.com/report/github.com/linkdata/deadlock)
 [![Docs](https://godoc.org/github.com/linkdata/deadlock?status.svg)](https://godoc.org/github.com/linkdata/deadlock)
 
