@@ -1,0 +1,596 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>deadlock: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/linkdata/deadlock/deadlock_go1.18.go (100.0%)</option>
+				
+				<option value="file1">github.com/linkdata/deadlock/getgoid.go (100.0%)</option>
+				
+				<option value="file2">github.com/linkdata/deadlock/getgoid_fast.go (100.0%)</option>
+				
+				<option value="file3">github.com/linkdata/deadlock/lock.go (100.0%)</option>
+				
+				<option value="file4">github.com/linkdata/deadlock/lockorder.go (100.0%)</option>
+				
+				<option value="file5">github.com/linkdata/deadlock/options.go (100.0%)</option>
+				
+				<option value="file6">github.com/linkdata/deadlock/rlocker.go (100.0%)</option>
+				
+				<option value="file7">github.com/linkdata/deadlock/stacktraces.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">//go:build go1.18
+// +build go1.18
+
+package deadlock
+
+import (
+        "sync"
+)
+
+// A DeadlockMutex is a drop-in replacement for sync.Mutex.
+type DeadlockMutex struct {
+        mu sync.Mutex
+}
+
+// Lock locks the mutex.
+// If the lock is already in use, the calling goroutine
+// blocks until the mutex is available.
+//
+// Logs potential deadlocks to Opts.LogBuf,
+// calling Opts.OnPotentialDeadlock on each occasion.
+func (m *DeadlockMutex) Lock() <span class="cov8" title="1">{
+        lock(m.mu.TryLock, m.mu.Lock, m)
+}</span>
+
+func (m *DeadlockMutex) TryLock() bool <span class="cov8" title="1">{
+        return lock(m.mu.TryLock, nil, m)
+}</span>
+
+// Unlock unlocks the mutex.
+// It is a run-time error if m is not locked on entry to Unlock.
+//
+// A locked Mutex is not associated with a particular goroutine.
+// It is allowed for one goroutine to lock a Mutex and then
+// arrange for another goroutine to unlock it.
+func (m *DeadlockMutex) Unlock() <span class="cov8" title="1">{
+        m.mu.Unlock()
+        lo.postUnlock(m)
+}</span>
+
+// An DeadlockRWMutex is a drop-in replacement for sync.RWMutex.
+type DeadlockRWMutex struct {
+        mu sync.RWMutex
+}
+
+// Lock locks rw for writing.
+// If the lock is already locked for reading or writing,
+// Lock blocks until the lock is available.
+// To ensure that the lock eventually becomes available,
+// a blocked Lock call excludes new readers from acquiring
+// the lock.
+//
+// Logs potential deadlocks to Opts.LogBuf,
+// calling Opts.OnPotentialDeadlock on each occasion.
+func (m *DeadlockRWMutex) Lock() <span class="cov8" title="1">{
+        lock(m.mu.TryLock, m.mu.Lock, m)
+}</span>
+
+func (m *DeadlockRWMutex) TryLock() bool <span class="cov8" title="1">{
+        return lock(m.mu.TryLock, nil, m)
+}</span>
+
+// Unlock unlocks the mutex for writing.  It is a run-time error if rw is
+// not locked for writing on entry to Unlock.
+//
+// As with Mutexes, a locked RWMutex is not associated with a particular
+// goroutine.  One goroutine may RLock (Lock) an RWMutex and then
+// arrange for another goroutine to RUnlock (Unlock) it.
+func (m *DeadlockRWMutex) Unlock() <span class="cov8" title="1">{
+        m.mu.Unlock()
+        lo.postUnlock(m)
+}</span>
+
+// RLock locks the mutex for reading.
+//
+// Logs potential deadlocks to Opts.LogBuf,
+// calling Opts.OnPotentialDeadlock on each occasion.
+func (m *DeadlockRWMutex) RLock() <span class="cov8" title="1">{
+        lock(m.mu.TryRLock, m.mu.RLock, m)
+}</span>
+
+func (m *DeadlockRWMutex) TryRLock() bool <span class="cov8" title="1">{
+        return lock(m.mu.TryRLock, nil, m)
+}</span>
+
+// RUnlock undoes a single RLock call;
+// it does not affect other simultaneous readers.
+// It is a run-time error if rw is not locked for reading
+// on entry to RUnlock.
+func (m *DeadlockRWMutex) RUnlock() <span class="cov8" title="1">{
+        m.mu.RUnlock()
+        lo.postUnlock(m)
+}</span>
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package deadlock
+
+import (
+        "runtime"
+
+        "github.com/petermattis/goid"
+)
+
+func init() <span class="cov8" title="1">{
+        testGoid(getGoidFallback())
+}</span>
+
+func getGoidFallback() int64 <span class="cov8" title="1">{
+        var buf [64]byte
+        return goid.ExtractGID(buf[:runtime.Stack(buf[:], false)])
+}</span>
+
+func testGoid(slowId int64) <span class="cov8" title="1">{
+        if goid.Get() != slowId </span><span class="cov8" title="1">{
+                panic("github.com/petermattis/goid doesn't support this Go version, use '-tags=slowgoid'")</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">//go:build !slowgoid
+// +build !slowgoid
+
+package deadlock
+
+import (
+        "github.com/petermattis/goid"
+)
+
+func getGoid() int64 <span class="cov8" title="1">{
+        return goid.Get()
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package deadlock
+
+import (
+        "sync/atomic"
+        "time"
+)
+
+func lock(tryLockFn func() bool, lockFn func(), curMtx interface{}) bool <span class="cov8" title="1">{
+        gid := getGoid()
+        curStack := callers(2)
+
+        if lockFn != nil </span><span class="cov8" title="1">{
+                if ms := atomic.LoadInt32(&amp;maxMapSize); ms &gt; 0 </span><span class="cov8" title="1">{
+                        lo.preLock(int(ms), gid, curStack, curMtx)
+                }</span>
+        }
+
+        <span class="cov8" title="1">if tryLockFn == nil || !tryLockFn() </span><span class="cov8" title="1">{
+                if lockFn == nil </span><span class="cov8" title="1">{
+                        return false
+                }</span>
+                <span class="cov8" title="1">if to := atomic.LoadInt32(&amp;deadlockTimeout); to &gt; 0 </span><span class="cov8" title="1">{
+                        ch := make(chan struct{})
+                        defer close(ch)
+                        go lo.timeoutFn(ch, time.Duration(to)*time.Millisecond, gid, curStack, curMtx)
+                }</span>
+                <span class="cov8" title="1">lockFn()</span>
+        }
+
+        <span class="cov8" title="1">lo.postLock(gid, curStack, curMtx)
+        return true</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package deadlock
+
+import (
+        "bytes"
+        "fmt"
+        "sync"
+        "time"
+
+        "github.com/petermattis/goid"
+)
+
+const header = "POTENTIAL DEADLOCK:"
+
+type lockOrder struct {
+        mu    sync.Mutex                          // protects following
+        cur   map[interface{}]stackGID            // stacktraces + gids for the locks currently taken.
+        order map[beforeAfterMtx]beforeAfterStack // expected order of locks.
+}
+
+type stackGID struct {
+        stack []uintptr
+        gid   int64
+}
+
+type beforeAfterMtx struct {
+        beforeMtx interface{}
+        afterMtx  interface{}
+}
+
+type beforeAfterStack struct {
+        beforeStack []uintptr
+        afterStack  []uintptr
+}
+
+var lo = newLockOrder()
+
+func newLockOrder() (lo *lockOrder) <span class="cov8" title="1">{
+        lo = &amp;lockOrder{
+                cur:   map[interface{}]stackGID{},
+                order: map[beforeAfterMtx]beforeAfterStack{},
+        }
+        return
+}</span>
+
+func (l *lockOrder) postLock(gid int64, curStack []uintptr, curMtx interface{}) <span class="cov8" title="1">{
+        l.mu.Lock()
+        l.cur[curMtx] = stackGID{curStack, gid}
+        l.mu.Unlock()
+}</span>
+
+func (l *lockOrder) preLock(maxMapSize int, gid int64, curStack []uintptr, curMtx interface{}) <span class="cov8" title="1">{
+        l.mu.Lock()
+        defer l.mu.Unlock()
+
+        // Reset the map to keep memory footprint bounded
+        if len(l.order) &gt;= maxMapSize </span><span class="cov8" title="1">{
+                // This gets optimized to calling runtime.mapclear()
+                for k := range l.order </span><span class="cov8" title="1">{
+                        delete(l.order, k)
+                }</span>
+        }
+
+        <span class="cov8" title="1">for otherMtx, otherStackGID := range l.cur </span><span class="cov8" title="1">{
+                if otherMtx == curMtx </span><span class="cov8" title="1">{
+                        if otherStackGID.gid == gid </span><span class="cov8" title="1">{
+                                fmt.Fprintln(&amp;Opts, header, "Recursive locking:")
+                                fmt.Fprintf(&amp;Opts, "goroutine %d lock %p:\n", gid, otherMtx)
+                                printStack(&amp;Opts, curStack)
+                                fmt.Fprintln(&amp;Opts, "same goroutine previously locked it from:")
+                                printStack(&amp;Opts, otherStackGID.stack)
+                                l.otherLocked(curMtx)
+                                _ = Opts.Flush()
+                                Opts.PotentialDeadlock()
+                        }</span>
+                        <span class="cov8" title="1">continue</span>
+                }
+                <span class="cov8" title="1">if otherStackGID.gid != gid </span><span class="cov8" title="1">{ // We want locks taken in the same goroutine only.
+                        continue</span>
+                }
+                <span class="cov8" title="1">if otherStacks, ok := l.order[beforeAfterMtx{curMtx, otherMtx}]; ok </span><span class="cov8" title="1">{
+                        fmt.Fprintln(&amp;Opts, header, "Inconsistent locking:")
+                        fmt.Fprintln(&amp;Opts, "in one goroutine: happened before")
+                        printStack(&amp;Opts, otherStacks.beforeStack)
+                        fmt.Fprintln(&amp;Opts, "happened after")
+                        printStack(&amp;Opts, otherStacks.afterStack)
+
+                        fmt.Fprintln(&amp;Opts, "in another goroutine: happened before")
+                        printStack(&amp;Opts, otherStackGID.stack)
+                        fmt.Fprintln(&amp;Opts, "happened after")
+                        printStack(&amp;Opts, curStack)
+                        l.otherLocked(curMtx)
+                        fmt.Fprintln(&amp;Opts)
+                        _ = Opts.Flush()
+                        Opts.PotentialDeadlock()
+                }</span>
+
+                <span class="cov8" title="1">l.order[beforeAfterMtx{otherMtx, curMtx}] = beforeAfterStack{otherStackGID.stack, curStack}</span>
+        }
+}
+
+func (l *lockOrder) postUnlock(curMtx interface{}) <span class="cov8" title="1">{
+        l.mu.Lock()
+        delete(l.cur, curMtx)
+        l.mu.Unlock()
+}</span>
+
+func (l *lockOrder) timeoutFn(ch &lt;-chan struct{}, timeout time.Duration, gid int64, curStack []uintptr, curMtx interface{}) <span class="cov8" title="1">{
+        t := time.NewTimer(timeout)
+        defer t.Stop()
+        select </span>{
+        case &lt;-t.C:<span class="cov8" title="1">
+                fmt.Fprintln(&amp;Opts, header)
+                fmt.Fprintf(&amp;Opts, "goroutine %v have been trying to lock %p for more than %v:\n",
+                        gid, curMtx, &amp;Opts.DeadlockTimeout)
+                printStack(&amp;Opts, curStack)
+
+                curStacks := stacks()
+
+                func() </span><span class="cov8" title="1">{
+                        lo.mu.Lock()
+                        defer lo.mu.Unlock()
+                        if prev, ok := lo.cur[curMtx]; ok </span><span class="cov8" title="1">{
+                                fmt.Fprintf(&amp;Opts, "goroutine %v previously locked it from:\n", prev.gid)
+                                printStack(&amp;Opts, prev.stack)
+                                goroutineStackList := bytes.Split(curStacks, []byte("\n\n"))
+                                for _, goroutineStack := range goroutineStackList </span><span class="cov8" title="1">{
+                                        if goid.ExtractGID(goroutineStack) == prev.gid </span><span class="cov8" title="1">{
+                                                fmt.Fprintf(&amp;Opts, "goroutine %v current stack:\n", prev.gid)
+                                                _, _ = Opts.Write(goroutineStack)
+                                                fmt.Fprintln(&amp;Opts)
+                                        }</span>
+                                }
+                        }
+                        <span class="cov8" title="1">lo.otherLocked(curMtx)</span>
+                }()
+
+                <span class="cov8" title="1">if Opts.PrintAllCurrentGoroutines </span><span class="cov8" title="1">{
+                        fmt.Fprintln(&amp;Opts, "All current goroutines:")
+                        _, _ = Opts.Write(curStacks)
+                }</span>
+
+                <span class="cov8" title="1">fmt.Fprintln(&amp;Opts)
+                _ = Opts.Flush()
+                Opts.PotentialDeadlock()
+                &lt;-ch</span>
+        case &lt;-ch:<span class="cov8" title="1"></span>
+        }
+}
+
+func (l *lockOrder) otherLocked(curMtx interface{}) <span class="cov8" title="1">{
+        printedHeader := false
+        for otherMtx, otherStackGID := range l.cur </span><span class="cov8" title="1">{
+                if otherMtx != curMtx </span><span class="cov8" title="1">{
+                        if !printedHeader </span><span class="cov8" title="1">{
+                                printedHeader = true
+                                fmt.Fprintln(&amp;Opts, "Other goroutines holding locks:")
+                        }</span>
+                        <span class="cov8" title="1">fmt.Fprintf(&amp;Opts, "goroutine %v lock %p\n", otherStackGID.gid, otherMtx)
+                        printStack(&amp;Opts, otherStackGID.stack)</span>
+                }
+        }
+        <span class="cov8" title="1">if printedHeader </span><span class="cov8" title="1">{
+                fmt.Fprintln(&amp;Opts)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package deadlock
+
+import (
+        "bufio"
+        "io"
+        "os"
+        "sync"
+        "sync/atomic"
+        "time"
+)
+
+type Options struct {
+        // Waiting for a lock for longer than a non-zero DeadlockTimeout milliseconds is considered a deadlock.
+        // Set to 30 seconds by default.
+        DeadlockTimeout time.Duration
+        // OnPotentialDeadlock is called each time a potential deadlock is detected -- either based on
+        // lock order or on lock wait time. If nil, panics instead.
+        OnPotentialDeadlock func()
+        // Sets the maximum size of the map that tracks lock ordering.
+        // Setting this to zero disables tracking of lock order. Default is a reasonable size.
+        MaxMapSize int
+        // Will dump stacktraces of all goroutines when inconsistent locking is detected.
+        PrintAllCurrentGoroutines bool
+        // Where to write reports, set to os.Stderr by default.
+        LogBuf io.Writer
+}
+
+var optsLock sync.RWMutex
+var maxMapSize int32 = 1024 * 64
+var deadlockTimeout int32 = 30 * 1000
+
+// Opts control how deadlock detection behaves.
+// To safely read or change options during runtime, use Opts.ReadLocked() and Opts.WriteLocked()
+var Opts = Options{
+        DeadlockTimeout: time.Millisecond * time.Duration(deadlockTimeout),
+        MaxMapSize:      int(maxMapSize),
+        LogBuf:          os.Stderr,
+}
+
+// WriteLocked calls the given function with Opts locked for writing.
+func (opts *Options) WriteLocked(fn func()) <span class="cov8" title="1">{
+        optsLock.Lock()
+        defer optsLock.Unlock()
+        fn()
+        atomic.StoreInt32(&amp;maxMapSize, int32(opts.MaxMapSize))                                                 //#nosec G115
+        atomic.StoreInt32(&amp;deadlockTimeout, int32(opts.DeadlockTimeout.Nanoseconds()/int64(time.Millisecond))) //#nosec G115
+}</span>
+
+// ReadLocked calls the given function with Opts locked for reading.
+func (opts *Options) ReadLocked(fn func()) <span class="cov8" title="1">{
+        optsLock.RLock()
+        defer optsLock.RUnlock()
+        fn()
+}</span>
+
+// Write implements io.Writer for Options.
+func (opts *Options) Write(b []byte) (int, error) <span class="cov8" title="1">{
+        if opts.LogBuf != nil </span><span class="cov8" title="1">{
+                return opts.LogBuf.Write(b)
+        }</span>
+        <span class="cov8" title="1">return 0, nil</span>
+}
+
+// Flush will flush the LogBuf if it is a *bufio.Writer
+func (opts *Options) Flush() error <span class="cov8" title="1">{
+        if opts.LogBuf != nil </span><span class="cov8" title="1">{
+                if buf, ok := opts.LogBuf.(*bufio.Writer); ok </span><span class="cov8" title="1">{
+                        return buf.Flush()
+                }</span>
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+// PotentialDeadlock calls OnPotentialDeadlock if it is set, or panics if not.
+func (opts *Options) PotentialDeadlock() <span class="cov8" title="1">{
+        if opts.OnPotentialDeadlock == nil </span><span class="cov8" title="1">{
+                panic("deadlock detected")</span>
+        }
+        <span class="cov8" title="1">opts.OnPotentialDeadlock()</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package deadlock
+
+import "sync"
+
+type rlocker DeadlockRWMutex
+
+func (r *rlocker) Lock()   <span class="cov8" title="1">{ (*DeadlockRWMutex)(r).RLock() }</span>
+func (r *rlocker) Unlock() <span class="cov8" title="1">{ (*DeadlockRWMutex)(r).RUnlock() }</span>
+
+// RLocker returns a Locker interface that implements
+// the Lock and Unlock methods by calling RLock and RUnlock.
+func (m *DeadlockRWMutex) RLocker() sync.Locker <span class="cov8" title="1">{
+        return (*rlocker)(m)
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package deadlock
+
+import (
+        "fmt"
+        "io"
+        "runtime"
+        "strings"
+        "sync/atomic"
+)
+
+func callers(skip int) (retv []uintptr) <span class="cov8" title="1">{
+        tmp := make([]uintptr, 50)
+        if n := runtime.Callers(2+skip, tmp); n &gt; 0 </span><span class="cov8" title="1">{
+                retv = make([]uintptr, n)
+                copy(retv, tmp[:n])
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func printStack(w io.Writer, stack []uintptr) <span class="cov8" title="1">{
+        frames := runtime.CallersFrames(stack)
+        var frame runtime.Frame
+        more := true
+        for more </span><span class="cov8" title="1">{
+                frame, more = frames.Next()
+                if strings.HasPrefix(frame.Function, "runtime.goexit") ||
+                        strings.HasPrefix(frame.Function, "testing.tRunner") </span><span class="cov8" title="1">{
+                        break</span>
+                }
+                <span class="cov8" title="1">fmt.Fprintf(w, "  %s()\n", frame.Function)
+                fmt.Fprintf(w, "      %s:%d +0x%x\n", frame.File, frame.Line, frame.PC-frame.Entry)</span>
+        }
+        <span class="cov8" title="1">fmt.Fprintln(w)</span>
+}
+
+var stackBufSize = int64(1024)
+
+// Stacktraces for all goroutines.
+func stacks() []byte <span class="cov8" title="1">{
+        for </span><span class="cov8" title="1">{
+                bufSize := atomic.LoadInt64(&amp;stackBufSize)
+                buf := make([]byte, bufSize)
+                if n := runtime.Stack(buf, true); n &lt; len(buf) </span><span class="cov8" title="1">{
+                        return buf[:n]
+                }</span>
+                <span class="cov8" title="1">atomic.StoreInt64(&amp;stackBufSize, bufSize*2)</span>
+        }
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
