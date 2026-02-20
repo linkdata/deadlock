@@ -247,8 +247,10 @@ func TestRWMutexConcurrentReaders(t *testing.T) {
 	writerDone := make(chan struct{})
 	go func() {
 		rw.Lock()
-		rw.Unlock()
-		close(writerDone)
+		defer func() {
+			rw.Unlock()
+			close(writerDone)
+		}()
 	}()
 
 	spinWait(t, &deadlocks, 1)
