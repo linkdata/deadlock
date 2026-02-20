@@ -1,8 +1,10 @@
 package deadlock
 
 import (
+	"bytes"
 	"math/rand"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -202,6 +204,64 @@ func TestRWMutex(t *testing.T) {
 	case <-ch:
 	case <-time.After(time.Millisecond * 100):
 		t.Error("timeout waiting for deadlock to resolve")
+	}
+}
+
+func TestRWMutexConcurrentReaders(t *testing.T) {
+	t.Skip("known tracking limitation: concurrent RW readers overwrite holder metadata")
+	defer restore()()
+	var deadlocks uint32
+	var logBuf bytes.Buffer
+	Opts.WriteLocked(func() {
+		Opts.MaxMapSize = 0
+		Opts.DeadlockTimeout = time.Millisecond * 5
+		Opts.LogBuf = &logBuf
+		Opts.OnPotentialDeadlock = func() {
+			atomic.AddUint32(&deadlocks, 1)
+		}
+	})
+	var rw DeadlockRWMutex
+	firstReaderLocked := make(chan struct{})
+	secondReaderLocked := make(chan struct{})
+	firstReaderUnlocked := make(chan struct{})
+	releaseSecondReader := make(chan struct{})
+
+	go func() {
+		rw.RLock()
+		close(firstReaderLocked)
+		<-secondReaderLocked
+		rw.RUnlock()
+		close(firstReaderUnlocked)
+	}()
+	<-firstReaderLocked
+
+	go func() {
+		rw.RLock()
+		close(secondReaderLocked)
+		<-releaseSecondReader
+		rw.RUnlock()
+	}()
+	<-secondReaderLocked
+	<-firstReaderUnlocked
+
+	writerDone := make(chan struct{})
+	go func() {
+		rw.Lock()
+		rw.Unlock()
+		close(writerDone)
+	}()
+
+	spinWait(t, &deadlocks, 1)
+
+	close(releaseSecondReader)
+	select {
+	case <-writerDone:
+	case <-time.After(time.Millisecond * 100):
+		t.Fatal("timeout waiting for writer to acquire lock")
+	}
+
+	if output := logBuf.String(); !strings.Contains(output, "previously locked it from:") {
+		t.Fatalf("expected timeout report to include holder stack, output:\n%s", output)
 	}
 }
 
