@@ -10,3 +10,7 @@ import (
 func getGoid() int64 {
 	return goid.Get()
 }
+
+func goidMatches(slowId int64) bool {
+	return goid.Get() == slowId
+}

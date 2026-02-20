@@ -55,16 +55,22 @@ func (opts *Options) ReadLocked(fn func()) {
 
 // Write implements io.Writer for Options.
 func (opts *Options) Write(b []byte) (int, error) {
-	if opts.LogBuf != nil {
-		return opts.LogBuf.Write(b)
+	optsLock.RLock()
+	logBuf := opts.LogBuf
+	optsLock.RUnlock()
+	if logBuf != nil {
+		return logBuf.Write(b)
 	}
 	return 0, nil
 }
 
 // Flush will flush the LogBuf if it is a *bufio.Writer
 func (opts *Options) Flush() error {
-	if opts.LogBuf != nil {
-		if buf, ok := opts.LogBuf.(*bufio.Writer); ok {
+	optsLock.RLock()
+	logBuf := opts.LogBuf
+	optsLock.RUnlock()
+	if logBuf != nil {
+		if buf, ok := logBuf.(*bufio.Writer); ok {
 			return buf.Flush()
 		}
 	}
@@ -73,8 +79,17 @@ func (opts *Options) Flush() error {
 
 // PotentialDeadlock calls OnPotentialDeadlock if it is set, or panics if not.
 func (opts *Options) PotentialDeadlock() {
-	if opts.OnPotentialDeadlock == nil {
+	optsLock.RLock()
+	onPotentialDeadlock := opts.OnPotentialDeadlock
+	optsLock.RUnlock()
+	if onPotentialDeadlock == nil {
 		panic("deadlock detected")
 	}
-	opts.OnPotentialDeadlock()
+	onPotentialDeadlock()
+}
+
+func (opts *Options) PrintAllCurrentGoroutinesEnabled() bool {
+	optsLock.RLock()
+	defer optsLock.RUnlock()
+	return opts.PrintAllCurrentGoroutines
 }

@@ -111,7 +111,7 @@ func (l *lockOrder) timeoutFn(ch <-chan struct{}, timeout time.Duration, gid int
 	case <-t.C:
 		fmt.Fprintln(&Opts, header)
 		fmt.Fprintf(&Opts, "goroutine %v have been trying to lock %p for more than %v:\n",
-			gid, curMtx, &Opts.DeadlockTimeout)
+			gid, curMtx, timeout)
 		printStack(&Opts, curStack)
 
 		curStacks := stacks()
@@ -134,7 +134,7 @@ func (l *lockOrder) timeoutFn(ch <-chan struct{}, timeout time.Duration, gid int
 			lo.otherLocked(curMtx)
 		}()
 
-		if Opts.PrintAllCurrentGoroutines {
+		if Opts.PrintAllCurrentGoroutinesEnabled() {
 			fmt.Fprintln(&Opts, "All current goroutines:")
 			_, _ = Opts.Write(curStacks)
 		}

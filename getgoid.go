@@ -16,7 +16,7 @@ func getGoidFallback() int64 {
 }
 
 func testGoid(slowId int64) {
-	if goid.Get() != slowId {
+	if !goidMatches(slowId) {
 		panic("github.com/petermattis/goid doesn't support this Go version, use '-tags=slowgoid'")
 	}
 }
