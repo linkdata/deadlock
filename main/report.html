@@ -3,7 +3,6 @@
 <html>
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-		<title>deadlock: Go Coverage Report</title>
 		<style>
 			body {
 				background: black;
@@ -55,7 +54,7 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/linkdata/deadlock/deadlock_go1.18.go (100.0%)</option>
+				<option value="file0">github.com/linkdata/deadlock/deadlock.go (100.0%)</option>
 				
 				<option value="file1">github.com/linkdata/deadlock/getgoid.go (100.0%)</option>
 				
@@ -83,8 +82,8 @@
 		</div>
 		<div id="content">
 		
-		<pre class="file" id="file0" style="display: none">//go:build go1.18
-// +build go1.18
+		<pre class="file" id="file0" style="display: none">//go:build go1.4 &amp;&amp; !go1.18
+// +build go1.4,!go1.18
 
 package deadlock
 
@@ -104,11 +103,7 @@ type DeadlockMutex struct {
 // Logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *DeadlockMutex) Lock() <span class="cov8" title="1">{
-        lock(m.mu.TryLock, m.mu.Lock, m)
-}</span>
-
-func (m *DeadlockMutex) TryLock() bool <span class="cov8" title="1">{
-        return lock(m.mu.TryLock, nil, m)
+        lock(nil, m.mu.Lock, m)
 }</span>
 
 // Unlock unlocks the mutex.
@@ -137,11 +132,7 @@ type DeadlockRWMutex struct {
 // Logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *DeadlockRWMutex) Lock() <span class="cov8" title="1">{
-        lock(m.mu.TryLock, m.mu.Lock, m)
-}</span>
-
-func (m *DeadlockRWMutex) TryLock() bool <span class="cov8" title="1">{
-        return lock(m.mu.TryLock, nil, m)
+        lock(nil, m.mu.Lock, m)
 }</span>
 
 // Unlock unlocks the mutex for writing.  It is a run-time error if rw is
@@ -160,11 +151,7 @@ func (m *DeadlockRWMutex) Unlock() <span class="cov8" title="1">{
 // Logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *DeadlockRWMutex) RLock() <span class="cov8" title="1">{
-        lock(m.mu.TryRLock, m.mu.RLock, m)
-}</span>
-
-func (m *DeadlockRWMutex) TryRLock() bool <span class="cov8" title="1">{
-        return lock(m.mu.TryRLock, nil, m)
+        lock(nil, m.mu.RLock, m)
 }</span>
 
 // RUnlock undoes a single RLock call;
@@ -195,7 +182,7 @@ func getGoidFallback() int64 <span class="cov8" title="1">{
 }</span>
 
 func testGoid(slowId int64) <span class="cov8" title="1">{
-        if goid.Get() != slowId </span><span class="cov8" title="1">{
+        if !goidMatches(slowId) </span><span class="cov8" title="1">{
                 panic("github.com/petermattis/goid doesn't support this Go version, use '-tags=slowgoid'")</span>
         }
 }
@@ -212,6 +199,10 @@ import (
 
 func getGoid() int64 <span class="cov8" title="1">{
         return goid.Get()
+}</span>
+
+func goidMatches(slowId int64) bool <span class="cov8" title="1">{
+        return goid.Get() == slowId
 }</span>
 </pre>
 		
@@ -362,7 +353,7 @@ func (l *lockOrder) timeoutFn(ch &lt;-chan struct{}, timeout time.Duration, gid 
         case &lt;-t.C:<span class="cov8" title="1">
                 fmt.Fprintln(&amp;Opts, header)
                 fmt.Fprintf(&amp;Opts, "goroutine %v have been trying to lock %p for more than %v:\n",
-                        gid, curMtx, &amp;Opts.DeadlockTimeout)
+                        gid, curMtx, timeout)
                 printStack(&amp;Opts, curStack)
 
                 curStacks := stacks()
@@ -385,7 +376,7 @@ func (l *lockOrder) timeoutFn(ch &lt;-chan struct{}, timeout time.Duration, gid 
                         <span class="cov8" title="1">lo.otherLocked(curMtx)</span>
                 }()
 
-                <span class="cov8" title="1">if Opts.PrintAllCurrentGoroutines </span><span class="cov8" title="1">{
+                <span class="cov8" title="1">if Opts.PrintAllCurrentGoroutinesEnabled() </span><span class="cov8" title="1">{
                         fmt.Fprintln(&amp;Opts, "All current goroutines:")
                         _, _ = Opts.Write(curStacks)
                 }</span>
@@ -473,16 +464,22 @@ func (opts *Options) ReadLocked(fn func()) <span class="cov8" title="1">{
 
 // Write implements io.Writer for Options.
 func (opts *Options) Write(b []byte) (int, error) <span class="cov8" title="1">{
-        if opts.LogBuf != nil </span><span class="cov8" title="1">{
-                return opts.LogBuf.Write(b)
+        optsLock.RLock()
+        logBuf := opts.LogBuf
+        optsLock.RUnlock()
+        if logBuf != nil </span><span class="cov8" title="1">{
+                return logBuf.Write(b)
         }</span>
         <span class="cov8" title="1">return 0, nil</span>
 }
 
 // Flush will flush the LogBuf if it is a *bufio.Writer
 func (opts *Options) Flush() error <span class="cov8" title="1">{
-        if opts.LogBuf != nil </span><span class="cov8" title="1">{
-                if buf, ok := opts.LogBuf.(*bufio.Writer); ok </span><span class="cov8" title="1">{
+        optsLock.RLock()
+        logBuf := opts.LogBuf
+        optsLock.RUnlock()
+        if logBuf != nil </span><span class="cov8" title="1">{
+                if buf, ok := logBuf.(*bufio.Writer); ok </span><span class="cov8" title="1">{
                         return buf.Flush()
                 }</span>
         }
@@ -491,11 +488,20 @@ func (opts *Options) Flush() error <span class="cov8" title="1">{
 
 // PotentialDeadlock calls OnPotentialDeadlock if it is set, or panics if not.
 func (opts *Options) PotentialDeadlock() <span class="cov8" title="1">{
-        if opts.OnPotentialDeadlock == nil </span><span class="cov8" title="1">{
+        optsLock.RLock()
+        onPotentialDeadlock := opts.OnPotentialDeadlock
+        optsLock.RUnlock()
+        if onPotentialDeadlock == nil </span><span class="cov8" title="1">{
                 panic("deadlock detected")</span>
         }
-        <span class="cov8" title="1">opts.OnPotentialDeadlock()</span>
+        <span class="cov8" title="1">onPotentialDeadlock()</span>
 }
+
+func (opts *Options) PrintAllCurrentGoroutinesEnabled() bool <span class="cov8" title="1">{
+        optsLock.RLock()
+        defer optsLock.RUnlock()
+        return opts.PrintAllCurrentGoroutines
+}</span>
 </pre>
 		
 		<pre class="file" id="file6" style="display: none">package deadlock
