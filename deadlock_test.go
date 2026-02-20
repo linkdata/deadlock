@@ -216,20 +216,43 @@ func TestLockDuplicate(t *testing.T) {
 	})
 	var a DeadlockRWMutex
 	var b DeadlockMutex
+
+	aStart := make(chan struct{})
+	aDone := make(chan struct{})
 	go func() {
+		defer close(aDone)
 		a.RLock()
+		close(aStart)
 		a.Lock()
-		a.RUnlock()
 		a.Unlock()
 	}()
+	<-aStart
+	spinWait(t, &deadlocks, 1)
+	a.RUnlock()
+	select {
+	case <-aDone:
+	case <-time.After(time.Millisecond * 100):
+		t.Fatal("timeout waiting for recursive RWMutex test goroutine")
+	}
+
+	bStart := make(chan struct{})
+	bDone := make(chan struct{})
 	go func() {
+		defer close(bDone)
 		b.Lock()
+		close(bStart)
 		b.Lock()
 		runtime.Gosched()
 		b.Unlock()
-		b.Unlock()
 	}()
+	<-bStart
 	spinWait(t, &deadlocks, 2)
+	b.Unlock()
+	select {
+	case <-bDone:
+	case <-time.After(time.Millisecond * 100):
+		t.Fatal("timeout waiting for recursive Mutex test goroutine")
+	}
 }
 
 //go:noinline

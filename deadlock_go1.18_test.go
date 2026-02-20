@@ -20,6 +20,7 @@ func TestDeadlockMutex_TryLock(t *testing.T) {
 
 	var a DeadlockRWMutex
 	if a.TryLock() {
+		defer a.Unlock()
 		if a.TryRLock() {
 			t.Fatal("expected TryRLock to fail")
 		}
@@ -29,6 +30,7 @@ func TestDeadlockMutex_TryLock(t *testing.T) {
 
 	var b DeadlockMutex
 	if b.TryLock() {
+		defer b.Unlock()
 		if b.TryLock() {
 			t.Fatal("expected TryLock to fail")
 		}
