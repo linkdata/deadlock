@@ -33,7 +33,7 @@ jobs:
         run: go test -bench=. -coverprofile=coverage.out ./...
 
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@v2
+        uses: securego/gosec@v2.23.0
         with:
           args: ./...
 
