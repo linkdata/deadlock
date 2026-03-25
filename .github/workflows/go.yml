@@ -19,10 +19,10 @@ jobs:
           - "1.12"
           - "stable"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
 
@@ -47,7 +47,7 @@ jobs:
           go tool cover -html=coverage.out -o=coveragereport.html.out
 
       - name: Publish code coverage badge (and optional report)
-        uses: linkdata/gitcoverage@v4
+        uses: linkdata/gitcoverage@v7
         with:
           coverage: ${{ steps.coverage.outputs.coverage }}
           report:   "coveragereport.html.out"
