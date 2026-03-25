@@ -228,7 +228,7 @@ func TestStarvedRLockMultipleReaders(t *testing.T) {
 		}
 	})
 
-	var a RWMutex
+	var a DeadlockRWMutex
 
 	// Reader 1 holds RLock for the duration of the test.
 	a.RLock()
@@ -285,7 +285,7 @@ func TestManyReadersFewWriters(t *testing.T) {
 		Opts.DeadlockTimeout = time.Millisecond * 5000
 	})
 
-	var mu RWMutex
+	var mu DeadlockRWMutex
 	var wg sync.WaitGroup
 
 	const numReaders = 100
@@ -339,7 +339,7 @@ func TestConcurrentLockOrderDetection(t *testing.T) {
 		}
 	})
 
-	var a, b Mutex
+	var a, b DeadlockMutex
 
 	// Establish the A→B ordering in the lock-order map.
 	a.Lock()
