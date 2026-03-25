@@ -3,6 +3,7 @@
 <html>
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>deadlock: Go Coverage Report</title>
 		<style>
 			body {
 				background: black;
@@ -54,7 +55,7 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/linkdata/deadlock/deadlock.go (100.0%)</option>
+				<option value="file0">github.com/linkdata/deadlock/deadlock_go1.18.go (100.0%)</option>
 				
 				<option value="file1">github.com/linkdata/deadlock/getgoid.go (100.0%)</option>
 				
@@ -82,8 +83,8 @@
 		</div>
 		<div id="content">
 		
-		<pre class="file" id="file0" style="display: none">//go:build go1.4 &amp;&amp; !go1.18
-// +build go1.4,!go1.18
+		<pre class="file" id="file0" style="display: none">//go:build go1.18
+// +build go1.18
 
 package deadlock
 
@@ -103,7 +104,11 @@ type DeadlockMutex struct {
 // Logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *DeadlockMutex) Lock() <span class="cov8" title="1">{
-        lock(nil, m.mu.Lock, m)
+        lock(m.mu.TryLock, m.mu.Lock, m)
+}</span>
+
+func (m *DeadlockMutex) TryLock() bool <span class="cov8" title="1">{
+        return lock(m.mu.TryLock, nil, m)
 }</span>
 
 // Unlock unlocks the mutex.
@@ -132,7 +137,11 @@ type DeadlockRWMutex struct {
 // Logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *DeadlockRWMutex) Lock() <span class="cov8" title="1">{
-        lock(nil, m.mu.Lock, m)
+        lock(m.mu.TryLock, m.mu.Lock, m)
+}</span>
+
+func (m *DeadlockRWMutex) TryLock() bool <span class="cov8" title="1">{
+        return lock(m.mu.TryLock, nil, m)
 }</span>
 
 // Unlock unlocks the mutex for writing.  It is a run-time error if rw is
@@ -151,7 +160,11 @@ func (m *DeadlockRWMutex) Unlock() <span class="cov8" title="1">{
 // Logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *DeadlockRWMutex) RLock() <span class="cov8" title="1">{
-        lock(nil, m.mu.RLock, m)
+        lock(m.mu.TryRLock, m.mu.RLock, m)
+}</span>
+
+func (m *DeadlockRWMutex) TryRLock() bool <span class="cov8" title="1">{
+        return lock(m.mu.TryRLock, nil, m)
 }</span>
 
 // RUnlock undoes a single RLock call;
