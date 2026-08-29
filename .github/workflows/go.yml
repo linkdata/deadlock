@@ -19,10 +19,10 @@ jobs:
           - "1.12"
           - "stable"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
 
@@ -33,7 +33,7 @@ jobs:
         run: go test -bench=. -coverprofile=coverage.out ./...
 
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@v2.23.0
+        uses: securego/gosec@57f161386e11e13e4c8a37255bc1a6502993d079 # v2.29.0
         with:
           args: ./...
 
@@ -44,7 +44,7 @@ jobs:
           go tool cover -html=coverage.out -o=coveragereport.html.out
 
       - name: Publish code coverage badge (and optional report)
-        uses: linkdata/gitcoverage@v7
+        uses: linkdata/gitcoverage@v11
         with:
           coverage: ${{ steps.coverage.outputs.coverage }}
           report:   "coveragereport.html.out"
